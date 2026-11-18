@@ -4,434 +4,387 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0f766e">
-<title>Daily Morbidity Tracker Pro</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>ECHO 23028 Morbidity & IMCI Tracker Pro</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+
+<!-- جسر أندرويد الأساسي لعمل الحفظ والمشاركة داخل APK -->
 <script src="cordova.js"></script>
+
+<!-- مكتبات التصدير عبر سيرفر cdnjs المفتوح عالمياً (وتُدمج أوفلاين داخل الـ APK) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<style>
-:root{--p:#0f766e;--pl:#ccfbf1;--bd:#cbd5e1}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}
-body{margin:0;background:#f1f5f9;color:#0f172a;padding-bottom:60px}
-.hidden{display:none!important}
-.hd{background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;padding:10px 12px;position:sticky;top:0;z-index:100}
-.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;max-width:1280px;margin:0 auto 6px}
-.sp{flex:1}
-h1{font-size:16px;margin:0}
-.bt{border:0;padding:8px 10px;border-radius:8px;font-weight:800;font-size:12px;color:#fff;cursor:pointer}
-.gn{background:#16a34a}.rd{background:#dc2626}.bl{background:#2563eb}.dk{background:#1e293b}.or{background:#d97706}.sk{background:#0284c7}
-.bd{background:#fef08a;color:#854d0e;padding:3px 10px;border-radius:999px;font-weight:900;font-size:12px}
-.in{padding:7px 9px;border:2px solid var(--bd);border-radius:8px;font-weight:700;font-size:13px;width:100%}
-.hd .in{width:auto;border:0}
-.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:1280px;margin:10px auto 0;padding:0 10px}
-.tb{padding:10px 4px;border:2px solid var(--bd);background:#fff;color:#64748b;border-radius:10px;font-weight:900;font-size:12.5px;cursor:pointer}
-.tb.on{background:var(--p);color:#fff;border-color:var(--p)}
-.ct{max-width:1280px;margin:10px auto;padding:0 10px}
-.cd{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:10px}
-.cd h4{margin:0 0 8px;font-size:13.5px;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
-.gr{display:grid;gap:6px;grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(2,1fr)}
-@media(min-width:640px){.g4{grid-template-columns:repeat(4,1fr)}.g5{grid-template-columns:repeat(5,1fr)}}
-.g5{grid-template-columns:repeat(2,1fr)}
-.cb{padding:11px 6px;border:2px solid var(--bd);border-radius:10px;background:#f8fafc;font-weight:800;font-size:13px;text-align:center;cursor:pointer;user-select:none}
-.cb.selected{background:var(--pl);border-color:var(--p);color:#115e59}
-.cb.F.selected{background:#fce7f3;border-color:#db2777;color:#9d174d}
-.cb.M.selected{background:#dbeafe;border-color:#2563eb;color:#1e40af}
-.pin{border:1.5px solid var(--bd);background:#f8fafc;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;cursor:pointer}
-.pin.on{background:#fef08a;border-color:#ca8a04;color:#854d0e}
-.qp{background:#f0fdfa;border:1px dashed #0d9488;border-radius:10px;padding:8px;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;direction:ltr}
-.chip,.di{display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #99f6e4;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:800;cursor:pointer;direction:ltr;text-align:left}
-.di{border:2px solid #e2e8f0;font-size:12.5px}
-.chip.selected,.di.selected{background:#fef9c3;border-color:#ca8a04;color:#713f12}
-.nm{background:#0f766e;color:#fff;min-width:24px;padding:2px 5px;border-radius:5px;font-size:11px;text-align:center}
-.dl{max-height:260px;overflow-y:auto;display:grid;gap:6px;padding:4px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}
-@media(min-width:768px){.dl{grid-template-columns:repeat(2,1fr)}}
-.sb{background:#fff;border:2px solid var(--p);border-radius:12px;padding:12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
-.pl{display:flex;flex-wrap:wrap;gap:5px;font-size:12px;font-weight:800}
-.pl span{background:#e2e8f0;padding:3px 9px;border-radius:6px}
-.sv{width:100%;padding:14px;background:var(--p);color:#fff;border:0;border-radius:10px;font-size:16px;font-weight:900;cursor:pointer}
-.sv.ed{background:#d97706}
-.eb{background:#fffbeb;border:2px solid #f59e0b;color:#92400e;padding:9px 12px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;font-weight:900;font-size:13px}
-.lt{width:100%;border-collapse:collapse;font-size:12px;text-align:center}
-.lt th,.lt td{border:1px solid var(--bd);padding:6px 4px}.lt th{background:#f1f5f9}
-.xg{display:grid;gap:6px;grid-template-columns:repeat(2,1fr)}.xg label{font-size:11.5px;font-weight:800;display:block;margin-bottom:2px}
-.mb{position:fixed;inset:0;background:rgba(15,23,42,.85);z-index:3500;display:flex;align-items:center;justify-content:center;padding:14px;overflow-y:auto}
-.mc{background:#fff;width:100%;max-width:560px;border-radius:16px;padding:16px;max-height:92vh;overflow-y:auto}
-.ov{position:fixed;inset:0;background:rgba(15,23,42,.96);color:#fff;z-index:9000;display:flex;align-items:center;justify-content:center;font-weight:900;text-align:center;padding:20px}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 18px;border-radius:999px;font-weight:800;font-size:13px;z-index:9999;display:none;text-align:center;min-width:220px}
-#stage{position:fixed;top:0;left:0;z-index:8500;background:#fff;display:none;pointer-events:none;direction:ltr}
-#rep{background:#fff;padding:8px;border-radius:8px;direction:ltr;text-align:left}
-.ohb{border:1.5px solid #0f172a;border-radius:4px;padding:6px 10px;margin-bottom:6px;background:#f8fafc}
-.ohg{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;font-size:10px}
-.ohg div{background:#fff;border:1px solid var(--bd);padding:2px 5px}.ohg small{display:block;font-size:8.5px;color:#475569;font-weight:900}
-.ftb{border:1.5px solid #0f172a;border-radius:4px;padding:6px 10px;margin-top:6px;background:#f8fafc;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:9.5px;break-inside:avoid}
-.mt{width:100%;border-collapse:collapse;font-size:10px;text-align:center}
-.mt th,.mt td{border:1px solid #1e293b;padding:2px 3px;white-space:nowrap}.mt th{background:#e2e8f0}.mt tr{break-inside:avoid}
-.tn{background:#bae6fd!important}.tf{background:#fed7aa!important}.tt{background:#fde047!important}.ts{background:#e9d5ff!important}
-.cat td{background:#cbd5e1;font-weight:900;text-align:left}.sub td{background:#e2e8f0;font-weight:800;font-style:italic;text-align:left}
-.nz{background:#dcfce7;font-weight:900}.tl td{background:#fde047;font-weight:900}
-.dn{text-align:left!important;min-width:170px;white-space:normal!important}.cm{text-align:left!important;white-space:normal!important;min-width:120px}
-.ws{overflow-x:auto;border:1px solid #475569;margin-bottom:8px;background:#fff}
-.h3{font-size:10px;font-weight:900;margin:4px 0 2px}
-.pdfm .mt{font-size:7px}.pdfm .mt th,.pdfm .mt td{padding:1px 2px}.pdfm .ws{overflow:visible;border:0}.pdfm .dn{min-width:150px}
-</style>
 </head>
 <body>
+
 <div id="toast" class="toast"></div>
-<div id="stage"></div>
-<div id="ov" class="ov hidden">⚙️ جاري تجهيز الملف الرسمي...</div>
+<div id="pdfRenderStage"></div>
 
-<div id="facM" class="mb hidden"><div class="mc">
-  <h3 style="margin:0 0 10px;color:#0f766e">🏥 بيانات المرفق الصحي والتوقيع</h3>
-  <div class="xg" style="grid-template-columns:1fr">
-    <div><label>المرفق الصحي (من القائمة الرسمية)</label><select id="fHf" class="in" onchange="fillHf()"></select></div>
-    <div id="fInfo" style="font-size:12px;font-weight:800;color:#475569"></div>
-    <div><label>اسم مُعد التقرير (Collected by)</label><input id="fRep" class="in"></div>
-    <div><label>المسمى الوظيفي</label><input id="fTitle" class="in"></div>
-    <div><label>الجهة / المنظمة</label><input id="fOrg" class="in"></div>
+<div id="captureOverlay" class="capture-overlay hidden">
+  <div style="font-size:36px;">⚙️</div>
+  <div id="captureStatusText">جاري تجهيز وتوليد ملف الـ PDF الرسمي بدقة عالية...</div>
+</div>
+
+<!-- نافذة إعدادات المنشأة الصحية (مرتبطة بصفحة list الـ 19 مرفقاً) -->
+<div id="facilityModal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>🏥 اختيار المرفق الصحي وإعدادات الترويسة (ECHO 23028)</h3>
+      <button class="btn-action btn-pdf" onclick="closeModal('facilityModal')">✖</button>
+    </div>
+    <div class="form-group">
+      <label>اختر المرفق الصحي من القائمة الرسمية (Sheet: list):</label>
+      <select id="facPresetSelect" class="form-input" onchange="applyFacilityPreset(this.value)"></select>
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>المشروع (Project):</label><input id="facProject" class="form-input" value="ECHO 23028"></div>
+      <div class="form-group"><label>المحافظة (Governorate):</label><input id="facGov" class="form-input"></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>المديرية (District):</label><input id="facDist" class="form-input"></div>
+      <div class="form-group"><label>اسم المرفق المختصر (Collection Site):</label><input id="facShort" class="form-input"></div>
+    </div>
+    <div class="form-group"><label>الاسم الكامل في الكتلة الصحية (Cluster Name):</label><input id="facCluster" class="form-input"></div>
+    <div class="grid-2">
+      <div class="form-group"><label>اسم الطبيب / جامع البيانات (Collected By):</label><input id="facDoctor" class="form-input"></div>
+      <div class="form-group"><label>المسمى الوظيفي:</label><input id="facTitle" class="form-input" value="HF Medical Doctor Officer"></div>
+    </div>
+    <button class="btn-action btn-excel full-btn" onclick="saveFacilitySettings()">✅ حفظ بيانات المرفق والترويسة</button>
   </div>
-  <div class="row" style="margin:10px 0 0"><button class="bt gn sp" onclick="saveFac()">✅ حفظ</button><button class="bt rd" onclick="$('facM').classList.add('hidden')">إغلاق</button></div>
-</div></div>
+</div>
 
-<div id="bkM" class="mb hidden"><div class="mc">
-  <h3 style="margin:0 0 10px;color:#0f766e">💾 نسخ احتياطي / استعادة (<span id="bkN">0</span> حالة)</h3>
-  <div class="row" style="margin-bottom:10px"><button class="bt gn sp" onclick="bkExport()">📥 حفظ / مشاركة JSON</button><button class="bt bl sp" onclick="bkCopy()">📋 نسخ الكود</button></div>
-  <label style="font-size:12px;font-weight:800"><input type="radio" name="rm" value="merge" checked> دمج</label>
-  <label style="font-size:12px;font-weight:800;margin-inline-start:12px"><input type="radio" name="rm" value="replace"> استبدال الكل</label>
-  <button class="bt dk" style="width:100%;margin:8px 0;padding:10px" onclick="$('rf').click()">📂 اختيار ملف JSON</button>
-  <input type="file" id="rf" class="hidden" accept=".json,.txt" onchange="bkFile(event)">
-  <textarea id="bkT" class="in" style="height:90px;direction:ltr;font-family:monospace;font-size:11px" placeholder="أو الصق كود النسخة الاحتياطية هنا"></textarea>
-  <div class="row" style="margin:8px 0 0"><button class="bt gn sp" onclick="bkRestore($('bkT').value)">✅ استعادة من النص</button><button class="bt rd" onclick="$('bkM').classList.add('hidden')">إغلاق</button></div>
-</div></div>
+<!-- نافذة التعليمات الرسمية والتعريفات (Sheet1) -->
+<div id="guideModal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>📖 الدليل الرسمي لتعبئة استمارة ECHO 23028 (Sheet1)</h3>
+      <button class="btn-action btn-pdf" onclick="closeModal('guideModal')">✖</button>
+    </div>
+    <div id="officialGuideList" class="guide-list"></div>
+  </div>
+</div>
 
-<header class="hd">
-  <div class="row"><h1>🏥 Daily Morbidity Tracker Pro</h1><div class="sp"></div><span class="bd" id="bTot"></span><span class="bd" id="bNext"></span></div>
-  <div class="row" style="margin:0">
-    <span style="font-size:12px;font-weight:800">📅</span><input type="date" id="wd" class="in" onchange="refresh()"><b id="dn" style="font-size:12px;color:#fef08a"></b>
-    <div class="sp"></div>
-    <button class="bt sk" onclick="openFac()">⚙️ المرفق</button><button class="bt gn" onclick="exportXlsx()">📊 Excel</button><button class="bt rd" onclick="exportPdf()">📄 PDF</button><button class="bt dk" onclick="openBk()">💾 نسخ</button>
+<!-- نافذة النسخ الاحتياطي والاستعادة الشاملة -->
+<div id="backupModal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>💾 مركز النسخ الاحتياطي والاستعادة الشامل</h3>
+      <button class="btn-action btn-pdf" onclick="closeModal('backupModal')">✖</button>
+    </div>
+    <div class="panel-box">
+      <div class="panel-title">1. حفظ البيانات الحالية (<span id="modalTotalCases">0</span> حالة مسجلة):</div>
+      <div class="row-gap">
+        <button class="btn-action btn-excel flex-1" onclick="exportBackupJSON()">📥 حفظ ملف نسخة (.json)</button>
+        <button class="btn-action btn-share flex-1" onclick="copyBackupToClipboard()">📋 نسخ الكود للحافظة</button>
+      </div>
+    </div>
+    <div class="panel-box panel-green">
+      <div class="panel-title">2. استعادة بيانات سابقة (يدعم JSON و Excel .xlsx والنص):</div>
+      <div class="radio-row">
+        <label><input type="radio" name="restoreMode" value="merge" checked> دمج بدون تكرار</label>
+        <label><input type="radio" name="restoreMode" value="replace"> استبدال الكل</label>
+      </div>
+      <button class="btn-action btn-backup full-btn" onclick="document.getElementById('restoreInput').click()">📂 اختيار ملف من الهاتف (JSON / Excel / TXT)</button>
+      <input type="file" id="restoreInput" class="hidden" onchange="handleUniversalRestore(event)">
+      <textarea id="backupPasteArea" class="backup-textarea" placeholder="أو الصق كود JSON هنا مباشرة..."></textarea>
+      <button class="btn-action btn-excel full-btn" onclick="restoreFromText()">✅ استعادة من النص الملصق</button>
+    </div>
+  </div>
+</div>
+
+<!-- استوديو المعاينة وضبط المقاسات قبل التصدير (PDF Print Studio) -->
+<div id="pdfStudioModal" class="studio-backdrop hidden">
+  <div class="studio-header">
+    <strong>📐 استوديو معاينة وضبط مقاسات استمارة ECHO 23028 (PDF)</strong>
+    <div class="row-gap">
+      <button class="btn-action btn-excel" onclick="exportFinalPDF()">💾 حفظ / مشاركة PDF</button>
+      <button class="btn-action btn-share" onclick="triggerSmartPrint()">🖨️ طباعة</button>
+      <button class="btn-action btn-pdf" onclick="closeModal('pdfStudioModal')">✖ إغلاق</button>
+    </div>
+  </div>
+  <div class="studio-controls">
+    <div class="control-item">
+      <label>الاتجاه:</label>
+      <select id="ctrlOrientation" onchange="applyStudioSettings()">
+        <option value="portrait">A4 عمودي</option>
+        <option value="landscape" selected>A4 أفقي (موصى به)</option>
+      </select>
+    </div>
+    <div class="control-item"><label>العرض:</label><input type="range" id="ctrlPaperWidth" min="980" max="1550" step="10" value="1360" oninput="applyStudioSettings()"><span id="lblPaperWidth">1360px</span></div>
+    <div class="control-item"><label>الخط:</label><input type="range" id="ctrlFontSize" min="5.5" max="10" step="0.2" value="7.4" oninput="applyStudioSettings()"><span id="lblFontSize">7.4px</span></div>
+    <div class="control-item"><label>ارتفاع الصف:</label><input type="range" id="ctrlCellPad" min="0.8" max="3.8" step="0.2" value="1.5" oninput="applyStudioSettings()"><span id="lblCellPad">1.5px</span></div>
+    <div class="control-item"><label>التقريب:</label><input type="range" id="ctrlPreviewZoom" min="0.25" max="1.0" step="0.05" value="0.35" oninput="applyStudioZoom()"><span id="lblPreviewZoom">35%</span></div>
+    <button class="btn-action btn-backup" onclick="resetStudioDefaults()">🔄 ضبط قياسي</button>
+  </div>
+  <div class="studio-viewport" id="studioViewport">
+    <div class="studio-paper-scaler" id="studioScaler">
+      <div class="studio-paper" id="studioPaper"></div>
+    </div>
+  </div>
+</div>
+
+<!-- الشريط العلوي -->
+<header class="app-header">
+  <div class="header-top">
+    <div class="brand-wrap">
+      <h1 class="app-title">🏥 ECHO 23028 Morbidity & IMCI Pro</h1>
+      <span id="activeFacilityPill" class="facility-pill" onclick="openModal('facilityModal')">اختر المرفق الصحي ⚙️</span>
+    </div>
+    <div class="badges-wrap">
+      <span id="edewsAlertBadge" class="badge-edews hidden" onclick="switchTab('analytics')">🚨 eDEWS: 0</span>
+      <span class="badge-total-db" id="totalDbBadge">الذاكرة: 0</span>
+      <span class="badge-serial" id="nextSerialBadge">الحالة القادمة: #1</span>
+    </div>
+  </div>
+  <div class="controls-bar">
+    <label>📅 التاريخ:</label>
+    <input type="date" id="workDate" class="date-input" onchange="onDateChange()">
+    <span id="dayWeekLabel" class="day-week-label"></span>
+    <div class="spacer"></div>
+    <button class="btn-action btn-facility" onclick="openModal('facilityModal')">⚙️ المرفق</button>
+    <button class="btn-action btn-backup" onclick="openModal('guideModal')">📖 الدليل</button>
+    <button class="btn-action btn-excel" onclick="exportOfficialExcel()">📊 Excel الرسمي</button>
+    <button class="btn-action btn-pdf" onclick="openPdfStudio()">📐 معاينة و PDF</button>
+    <button class="btn-action btn-share" onclick="openBackupModal()">💾 نسخ / استعادة</button>
   </div>
 </header>
-<div class="tabs">
-  <button class="tb on" id="b-entry" onclick="tab('entry')">⚡ الإدخال + السجل</button>
-  <button class="tb" id="b-extra" onclick="tab('extra')">📝 الإحالات والبيانات اليومية</button>
-  <button class="tb" id="b-rep" onclick="tab('rep')">📊 الاستمارة الرسمية</button>
-</div>
 
-<div class="ct">
-<div id="t-entry">
-  <div id="eb" class="eb hidden"><span id="ebT"></span><button class="bt dk" onclick="cancelEdit()">✖ إلغاء</button></div>
-  <div class="cd"><h4>1. الجنس (Gender)</h4><div id="cG" class="gr"></div></div>
-  <div class="cd"><h4>2. الفئة العمرية (Age Group)</h4><div id="cA" class="gr g3"></div></div>
-  <div class="cd"><h4>3. نوع الحالة <button class="pin" id="pT" onclick="pinTog('t')"></button></h4><div id="cT" class="gr"></div>
-    <div style="font-size:11.5px;font-weight:800;margin:8px 0 4px;color:#475569">مستفيد جديد للمشروع (New Beneficiary: أول زيارة له في المشروع)؟ — يُحتسب للحالات الجديدة فقط، والمتابعين يُحسبون تلقائياً</div>
-    <div id="cN" class="gr"></div></div>
-  <div class="cd"><h4>4. الفئة الخاصة <button class="pin" id="pS" onclick="pinTog('sg')"></button></h4><div id="cS" class="gr g4"></div></div>
-  <div class="cd"><h4>5. التشخيص (1 - 55) <span id="dBadge" style="color:var(--p);font-size:12px">لم يتم الاختيار</span></h4>
-    <div id="qp" class="qp"></div>
-    <input id="ds" class="in" style="margin-bottom:6px" placeholder="🔍 رقم التشخيص أو الاسم..." oninput="renderDiag()">
-    <div id="dl" class="dl"></div></div>
-  <div class="sb"><div class="pl" id="pv"></div><button id="sv" class="sv" onclick="saveCase()">✅ حفظ الحالة</button></div>
-  <div class="cd"><h4><span>📋 السجل</span><span class="row" style="margin:0">
-    <select class="in" style="width:auto" id="sc1" onchange="setScope(this.value)"></select>
-    <button class="bt rd" onclick="clearDay()">🗑️ مسح اليوم</button></span></h4>
-    <div style="overflow-x:auto"><table class="lt"><thead><tr><th>#</th><th>الوقت</th><th>التاريخ</th><th>الجنس</th><th>العمر</th><th>النوع</th><th>مستفيد جديد</th><th>الفئة</th><th>التشخيص</th><th>إجراء</th></tr></thead><tbody id="lg"></tbody></table></div></div>
-</div>
+<!-- التبويبات الأربعة -->
+<nav class="tabs">
+  <button class="tab-btn active" id="tabBtnEntry" onclick="switchTab('entry')">⚡ الإدخال السريع + السجل (<span id="countLog">0</span>)</button>
+  <button class="tab-btn" id="tabBtnOps" onclick="switchTab('ops')">🚑 الإحالات، الفرز، الأدوية و IMCI</button>
+  <button class="tab-btn" id="tabBtnReport" onclick="switchTab('report')">📊 الاستمارة الرسمية (يومي/أسبوعي/شهري)</button>
+  <button class="tab-btn" id="tabBtnAnalytics" onclick="switchTab('analytics')">📈 التحليل والإنذار الوبائي (eDEWS)</button>
+</nav>
 
-<div id="t-extra" class="hidden">
-  <div class="cd"><h4>📤 الإحالات (Referrals) — تُسجَّل بالعمر والجنس وسبب الإحالة</h4>
-    <div class="xg">
-      <div><label>نوع الإحالة</label><select id="rT" class="in"></select></div>
-      <div><label>الجنس</label><select id="rG" class="in"><option value="F">Female</option><option value="M">Male</option></select></div>
-      <div><label>الفئة العمرية</label><select id="rA" class="in"></select></div>
-      <div><label>السبب / تفاصيل</label><input id="rC" class="in" placeholder="Cause of referral"></div>
+<main class="container">
+  <!-- التبويب 1: الإدخال السريع والسجل التسلسلي -->
+  <section id="tab-entry">
+    <div id="editModeBanner" class="edit-mode-banner hidden">
+      <span id="editModeText">✏️ جاري تعديل حالة</span>
+      <button class="btn-action btn-backup" onclick="cancelEditCase()">✖ إلغاء التعديل</button>
     </div>
-    <button class="bt gn" style="width:100%;margin-top:8px;padding:11px" onclick="addRef()">➕ إضافة إحالة لهذا اليوم</button>
-    <div id="rl" style="margin-top:8px;font-size:12px;font-weight:700"></div></div>
-  <div class="cd"><h4>📝 بيانات اليوم الإضافية (لتاريخ: <span id="xd"></span>)</h4><div id="xf"></div></div>
-</div>
 
-<div id="t-rep" class="hidden">
-  <div class="cd row" style="justify-content:space-between">
-    <span class="row" style="margin:0"><b>النطاق:</b><select class="in" style="width:auto" id="sc2" onchange="setScope(this.value)"></select></span>
-    <span class="row" style="margin:0"><button class="bt sk" onclick="openFac()">⚙️ المرفق والتوقيع</button><button class="bt gn" onclick="exportXlsx()">📊 Excel</button><button class="bt rd" onclick="exportPdf()">📄 PDF</button></span>
-  </div>
-  <div id="rep">
-    <div class="ohb">
-      <div style="display:flex;justify-content:space-between;border-bottom:1.5px solid #0f172a;padding-bottom:4px;margin-bottom:5px">
-        <div><div style="font-size:13px;font-weight:900">MORBIDITY-IMCI DAILY FORM — YEM-HOD-ECHO 23028</div><div id="rMeta" style="font-size:9.5px;font-weight:800;color:#0f766e"></div></div>
-        <div id="rOrg" style="font-size:11px;font-weight:900;background:#e2e8f0;padding:3px 10px;border-radius:4px;height:fit-content"></div>
+    <div class="card">
+      <div class="section-title"><span>1. الجنس (Gender)</span></div>
+      <div class="grid-2">
+        <div class="choice-btn female" data-group="gender" data-val="Female" onclick="selectOption('gender','Female')">👩 Female (أنثى)</div>
+        <div class="choice-btn male" data-group="gender" data-val="Male" onclick="selectOption('gender','Male')">👨 Male (ذكر)</div>
       </div>
-      <div class="ohg"><div><small>Governorate</small><b id="hG"></b></div><div><small>District</small><b id="hD"></b></div><div><small>Health Facility</small><b id="hF"></b></div><div><small>Period</small><b id="hP"></b></div></div>
     </div>
-    <div style="display:flex;gap:8px;align-items:flex-start">
-      <div style="flex:1.9;min-width:0"><div class="h3">1. Beneficiaries (NEW BENEFICIARIES — FOLLOW UP is auto = consultations − new)</div><div class="ws" id="wBen"></div></div>
-      <div style="flex:1.1;min-width:0"><div class="h3">2. Special Groups (0-18 Y &amp; ≥ 18 Y)</div><div class="ws" id="wSpec"></div></div>
+
+    <div class="card">
+      <div class="section-title">
+        <span>2. الفئة العمرية (Age Group)</span>
+        <label id="elderlyToggleWrap" class="inline-check hidden">
+          <input type="checkbox" id="chkElderly65" onchange="updateLivePreview()"> 👴 مُسن أكبر من 65 سنة (&gt;65 Yrs)
+        </label>
+      </div>
+      <div class="grid-3">
+        <div class="choice-btn" data-group="ageGroup" data-val="0-6 months" onclick="selectOption('ageGroup','0-6 months')">0-6 months</div>
+        <div class="choice-btn" data-group="ageGroup" data-val="7-59 months" onclick="selectOption('ageGroup','7-59 months')">7-59 months</div>
+        <div class="choice-btn" data-group="ageGroup" data-val="5-14 years" onclick="selectOption('ageGroup','5-14 years')">5-14 years</div>
+        <div class="choice-btn" data-group="ageGroup" data-val="15-18 years" onclick="selectOption('ageGroup','15-18 years')">15-18 years</div>
+        <div class="choice-btn" data-group="ageGroup" data-val="19-49 years" onclick="selectOption('ageGroup','19-49 years')">19-49 years</div>
+        <div class="choice-btn" data-group="ageGroup" data-val=">= 50 years" onclick="selectOption('ageGroup','>= 50 years')">&ge; 50 years</div>
+      </div>
     </div>
-    <div class="h3">3. Daily Morbidity (Diagnoses 1 - 55)</div><div class="ws" id="wMat"></div>
-    <div class="h3">4. Referrals</div><div class="ws" id="wRef"></div>
-    <div class="h3">5. IMCI, Triage &amp; Other indicators</div><div class="ws" id="wOth"></div>
-    <div class="ftb">
-      <div><b>Collected By:</b><div>Name: <b id="fR"></b></div><div>Title: <b id="fT"></b></div></div>
-      <div><b>Signature &amp; Stamp:</b><div style="border-bottom:1px dashed #334155;height:16px"></div><small>Authorized Health Worker</small></div>
-      <div><b>Export Info:</b><div>Total cases: <b id="fN">0</b> (<span id="fS"></span>)</div><div>Generated: <span id="fD"></span></div></div>
+
+    <div class="grid-2-resp">
+      <div class="card">
+        <div class="section-title">
+          <span>3. نوع التشخيص (Case Type)</span>
+          <button id="pinCaseTypeBtn" class="pin-btn" onclick="togglePin('caseType')">📌 تثبيت</button>
+        </div>
+        <div class="grid-2">
+          <div class="choice-btn selected" data-group="caseType" data-val="New" onclick="selectOption('caseType','New')">🆕 New Case</div>
+          <div class="choice-btn" data-group="caseType" data-val="Follow up" onclick="selectOption('caseType','Follow up')">🔄 Follow up</div>
+        </div>
+        <div class="sub-toggle-bar">
+          <span>حالة المستفيد (Sheet1):</span>
+          <label><input type="radio" name="benType" value="New" checked onchange="setBenType('New')"> مستفيد جديد (أول زيارة)</label>
+          <label><input type="radio" name="benType" value="Follow up" onchange="setBenType('Follow up')"> متكرر (Follow-up)</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <span>4. الفئة الخاصة (Special Group)</span>
+          <button id="pinSpecialGroupBtn" class="pin-btn" onclick="togglePin('specialGroup')">📌 تثبيت</button>
+        </div>
+        <div class="grid-4">
+          <div class="choice-btn selected" data-group="specialGroup" data-val="Host" onclick="selectOption('specialGroup','Host')">🏠 Host (مضيف)</div>
+          <div class="choice-btn" data-group="specialGroup" data-val="IDPs" onclick="selectOption('specialGroup','IDPs')">⛺ IDPs (نازح)</div>
+          <div class="choice-btn" data-group="specialGroup" data-val="Migrants" onclick="selectOption('specialGroup','Migrants')">🌍 Migrants</div>
+          <div class="choice-btn" data-group="specialGroup" data-val="Disability" onclick="selectOption('specialGroup','Disability')">♿ Disability</div>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
-</div>
 
-<script>
-const $=i=>document.getElementById(i),sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const AG=['0-6 months','7-59 months','5-14 years','15-18 years','19-49 years','>= 50 years'];
-const AL=['0-6 M','7-59 M','5Y-14Y','15Y-18Y','19Y-49Y','≥ 50Y'];
-const DN=`Upper Respiratory Tract Infection|Lower Respiratory Tract Infection|Influenza Like Illness (ILI)|Severe Acute Respiratory Infections (SARI)|Suspected COVID-19|Suspected Pertussis|Suspected Diphtheria|Acute Watery Diarrhea / Cholera Suspicion|Other, Acute Diarrhea|Bloody Diarrhea|Acute Flaccid Paralysis|Measles Suspicion|Suspected Viral Hepatitis A & E|Tetanus Neonatorum|Suspected Mumps|Suspected Malaria|Dengue Fever|Acute Haemorrhagic Fever|Typhoid & Paratyphoid Fever|Brucellosis|Meningitis Suspicion|Tuberculosis Suspicion|Cutaneous Leishmaniasis|Schistosomiasis|Suspected Rabies|Chicken Pox - Varicella Zoster|Pediculosis/Scabies|HIV/AIDS|Guinea Worm|Skin Infection Other Than Scabies|Eye Infection|Intestinal Worms|Urinary Tract Infections|Other Infectious Diseases|Anemia|Skin Diseases Other Than Infectious|Eye Diseases Other Than Infectious|Dental Condition|Gastritis/Peptic Ulcer Conditions|Renal Diseases Other Than Infectious|Heart Disease|Hypertension|Diabetes Mellitus|Asthma|Chronic Obstructive Pulmonary Disease|Musculoskeletal Disease|Other Non-Infectious Diseases|Pregnancy-Related Disorders|Gynecological Conditions|Wounds/Injuries|Burns|Animal Bite|Suspected Mental Health Conditions|Malnutrition|Others`.split('|');
-// القائمة الرسمية للمرافق (list sheet): [المحافظة, المديرية, المرفق, الطبيب]
-const HF=[['AlHudaydah','Al Mighlaf','Al Mighlaf HC','D/Fathi'],['AlHudaydah','Al Qanawis','Al Qanawis HC','D/Abduljalil Alwesabi'],['AlHudaydah','Al Mansuriyah','Al Mansuriyah HC','D/Mohammed Abdu'],['As Sukhnah','As Sukhnah','Al Madman HC','D/Basheer Alsulwi'],['As Sukhnah','As Sukhnah','Shujinah HC','D/Zaid AlHawery'],['AlHudaydah','Al Qanawis','Al Dawoodia HU','D/Muhanad Abdulkabeer'],['Raymah',"Bilad At Ta'am",'24 May HC','Dr. Sumaya'],['Hajjah','Kushar','Bani Nader HU','D/suliman'],['Hajjah','Kushar','Ahem HC','D/Abdulkareem'],['Hajjah','Kushar','Al Kharab HU','D/Namat Alzabidi'],['Hajjah','Kushar','Bani Omar HC','D/Abdullah Ham'],['Hajjah','Abs','AlRadha HC','Dr. Sumaya'],['Hajjah','Abs','Bani Balosh HU','D/Amer'],['Hajjah','Abs',"Rabou'o Matwala HU",'D/Adel Haj'],['Hajjah','Abs','Al Jaberi HU','D/suliman'],['Hajjah','Abs','Mother and child Center','D/Namat Alzabidi'],['Hajjah','Abs','Almaqayit HU','D/Kholood'],['Hajjah','Abs','Al Hayjah HU','D/Kholood'],['','','Dir Al Kuraiti HC','']];
-const RT=['Emergency referrals to the hospital','Total cases referred to SC','Total cases referred to CTC','Total Suspected COVID-19 Cases','Total pregnancy cases referred to the hospital','Total delivery cases referred to the hospital','Total Mental Health referrals to private clinics','Other Referrals'];
-const SEC=[['A','Communicable Diseases',1,34],['a','Notifiable Diseases',1,29],['b','Other Infectious / Communicable Diseases',30,34],['B','Non-Communicable Diseases',35,47],['C','Reproductive Health',48,49],['D','Trauma-Related Injuries',50,52],['E','Others',53,55]];
-const XF=[['tri','Total cases triaged at HC entry (الفرز عند الدخول)',['Female','Male']],['va','Patients receiving Vitamin A (فيتامين أ)',['0-6 m F','0-6 m M','6-59 m F','6-59 m M']],['eld','Elderly consultations > 65 Y (كبار السن)',['Female','Male']],['gho','GHO trained (on-job coaching)',['Female','Male']],['dr','Restricted-use drugs — women treated',['Nifedipine 10mg','Methyldopa 250mg','Misoprostol 200mcg','Hydralazine 20mg','MgSO4 0.5g/ml']]];
-const HINT={14:'⚠️ Tetanus neonatorum: الفئة 0-6 أشهر فقط',48:'⚠️ إناث 5 سنوات فصاعداً فقط',49:'⚠️ إناث 5 سنوات فصاعداً فقط',54:'⚠️ Malnutrition: 0-59 شهراً للجنسين + إناث حتى 49 سنة'};
-const DAYS=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'],MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const KEY='MORB_V5',LEG=['MORBIDITY_RECORDS_V4','MORBIDITY_APP','MORBIDITY_DB_V5','MORBIDITY_RECORDS_V3','morbidity_cases'];
-let S={cases:[],refs:[],extras:{},fac:{hf:-1,rep:'',title:'Medical Doctor',org:'MoPHP / Health Cluster'},pins:{t:false,sg:false}};
-let cur={g:'',a:-1,t:'New',sg:'Non',nb:'Yes',d:0},edit=null,scope='day';
+    <div class="card">
+      <div class="section-title">
+        <span>5. التشخيص الرئيسي الواحد (Main Diagnosis 1 - 55)</span>
+        <span id="selectedDiagBadge" class="selected-diag-badge">لم يتم الاختيار</span>
+      </div>
+      <div class="quick-picks-wrap">
+        <div class="quick-picks-title">⚡ الأكثر شيوعاً في عيادتك (لمسة واحدة):</div>
+        <div id="quickPicksContainer" class="quick-picks-grid"></div>
+      </div>
+      <input type="text" id="diagSearch" class="search-box" placeholder="🔍 ابحث برقم التشخيص (1-55) أو الاسم بالإنجليزية..." oninput="renderDiagList()">
+      <div id="diagListContainer" class="diag-list"></div>
+    </div>
 
-const iso=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
-const today=()=>iso(new Date()),dayName=d=>DAYS[new Date(d+'T00:00:00').getDay()]||'';
-const toast=m=>{const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(window._t);window._t=setTimeout(()=>t.style.display='none',3200)};
-const sum=a=>a.reduce((s,v)=>s+v,0),Z=()=>Array(24).fill(0),uid=()=>Date.now()+'_'+Math.random().toString(36).slice(2,7);
-// قواعد القفل الرسمية في الاستمارة (الخلايا المقفلة)
-const allowed=(d,a,g)=>d==14?a==0:(d==48||d==49)?(g==0&&a>=2):d==54?(a<=1||(g==0&&a<=4)):true;
-const refOk=(t,g,a)=>t==1?a<=1:(t==4||t==5)?(g==0&&a>=2&&a<=4):true;
+    <!-- إضافات سريعة مرتبطة بنفس المريض (فيتامين أ / إحالة / أدوية توليد مقيدة) -->
+    <div class="card extras-card">
+      <div class="section-title"><span>6. إضافات اختيارية لنفس المريض (IMCI / إحالة / أدوية مقيدة)</span></div>
+      <div class="extras-toggles">
+        <label id="vitAWrap" class="extra-pill hidden"><input type="checkbox" id="chkVitA" onchange="updateLivePreview()"> 💊 تلقّى فيتامين أ (Vitamin A)</label>
+        <label class="extra-pill"><input type="checkbox" id="chkReferral" onchange="toggleInlineReferral()"> 🚑 إحالة المريض (Referral)</label>
+        <label id="restrictedDrugToggleWrap" class="extra-pill hidden"><input type="checkbox" id="chkRestrictedDrugs" onchange="toggleInlineDrugs()"> 💉 دواء توليد مقيد الاستعمال</label>
+      </div>
 
-function norm(r,i){
-  const d=+(r.d??r.diagId??r.id)||0;if(d<1||d>55)return null;
-  let a=r.a;if(typeof a!=='number'){const s=String(r.ageGroup??a??'');a=s.includes('0-6')?0:s.includes('7-59')?1:(s.includes('5-14')||s.includes('5Y'))?2:s.includes('15-18')?3:s.includes('19-49')?4:s.includes('50')?5:2}
-  const gs=String(r.g??r.gender??'F').toLowerCase(),g=(gs==='m'||gs==='male'||gs==='ذكر')?'M':'F';
-  const t=/follow|متابع/i.test(String(r.t??r.caseType??''))?'Follow up':'New';
-  const sp=String(r.sg??r.specialGroup??'Non').toLowerCase(),sg=sp.includes('idp')?'IDPs':sp.includes('mig')?'Migrants':sp.includes('dis')?'Disability':'Non';
-  const dt=String(r.date||'').slice(0,10);
-  return{u:String(r.u||r.uid||uid()+i).replace(/[^\w-]/g,''),date:/^\d{4}-\d\d-\d\d$/.test(dt)?dt:today(),time:String(r.time||'08:00').slice(0,5),g,a,t,sg,d,nb:t==='New'&&(r.nb??true)}
-}
-function load(){
-  let raw=null;try{raw=localStorage.getItem(KEY)||sessionStorage.getItem(KEY)}catch(e){}
-  if(raw){try{const o=JSON.parse(raw);S={...S,...o,fac:{...S.fac,...o.fac},pins:{...S.pins,...o.pins}};return}catch(e){}}
-  let best=[];LEG.forEach(k=>{try{const a=JSON.parse(localStorage.getItem(k));if(Array.isArray(a)&&a.length>best.length)best=a}catch(e){}});
-  S.cases=best.map(norm).filter(Boolean);
-}
-const save=()=>{const j=JSON.stringify(S);try{localStorage.setItem(KEY,j)}catch(e){}try{sessionStorage.setItem(KEY,j)}catch(e){}};
+      <div id="inlineReferralBox" class="inline-subbox hidden">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>نوع الإحالة (8 أنواع رسمية):</label>
+            <select id="inlineRefType" class="form-input"></select>
+          </div>
+          <div class="form-group">
+            <label>تفاصيل الإحالة (العمر الدقيق + الجنس + السبب):</label>
+            <input type="text" id="inlineRefComment" class="form-input" placeholder="مثال: 28Y F - Severe Pre-eclampsia">
+          </div>
+        </div>
+        <label class="inline-check"><input type="checkbox" id="inlineRefCash"> 💵 استلم المريض مساعدة نقدية للإحالة (Cash Assistance)</label>
+      </div>
 
-// النطاق: يوم / أسبوع (سبت-خميس) / شهر / الكل
-function rng(){
-  const d=$('wd').value;if(scope==='all')return['0000','9999'];
-  if(scope==='month')return[d.slice(0,7)+'-01',d.slice(0,7)+'-31'];
-  if(scope==='week'){const x=new Date(d+'T00:00:00'),s=new Date(x);s.setDate(x.getDate()-((x.getDay()+1)%7));const e=new Date(s);e.setDate(s.getDate()+6);return[iso(s),iso(e)]}
-  return[d,d]
-}
-const inR=(d,r)=>d>=r[0]&&d<=r[1],getCases=()=>{const r=rng();return S.cases.filter(c=>inR(c.date,r))};
-const getRefs=()=>{const r=rng();return S.refs.filter(c=>inR(c.date,r))};
-const X=(k,i)=>{const r=rng();return Object.keys(S.extras).filter(d=>inR(d,r)).reduce((s,d)=>s+(+((S.extras[d][k]||[])[i])||0),0)};
-function setScope(v){scope=v;$('sc1').value=v;$('sc2').value=v;refresh()}
-function tab(t){['entry','extra','rep'].forEach(x=>{$('t-'+x).classList.toggle('hidden',x!==t);$('b-'+x).classList.toggle('on',x===t)});refresh()}
+      <div id="inlineDrugsBox" class="inline-subbox hidden">
+        <div style="font-size:12px; font-weight:800; margin-bottom:6px;">اختر الدواء المقيد المُعطى للمريضة:</div>
+        <div id="inlineDrugsChecks" class="drugs-grid"></div>
+      </div>
+    </div>
 
-// ===== الإدخال =====
-function chips(id,g,arr){$(id).innerHTML=arr.map(([v,l,c])=>`<div class="cb ${c||''}" data-g="${g}" data-v="${v}" onclick="pick('${g}','${v}')">${l}</div>`).join('')}
-function sync(){
-  document.querySelectorAll('.cb').forEach(b=>b.classList.toggle('selected',String(cur[b.dataset.g])===b.dataset.v));
-  $('pT').className='pin'+(S.pins.t?' on':'');$('pT').textContent=S.pins.t?'📌 مُثبّت':'📌 تثبيت';
-  $('pS').className='pin'+(S.pins.sg?' on':'');$('pS').textContent=S.pins.sg?'📌 مُثبّتة':'📌 تثبيت (للمخيمات)';
-  const d=cur.d;$('dBadge').textContent=d?`#${d} ${DN[d-1]}`:'لم يتم الاختيار';
-  $('pv').innerHTML=[`الجنس: ${cur.g||'—'}`,`العمر: ${cur.a<0?'—':AL[cur.a]}`,`النوع: ${cur.t}`,`مستفيد جديد: ${cur.t==='New'?cur.nb:'—'}`,`الفئة: ${cur.sg}`,`التشخيص: ${d?'#'+d:'—'}`].map(x=>`<span>${x}</span>`).join('');
-}
-function pick(g,v){
-  cur[g]=g==='a'?+v:v;
-  if(g==='t')cur.nb=v==='New'?'Yes':'No';
-  sync()
-}
-function pickDiag(id){
-  cur.d=id;if(id==48||id==49)cur.g='F';if(id==14)cur.a=0;
-  if(HINT[id])toast(HINT[id]);
-  sync();renderDiag();renderQuick()
-}
-function renderDiag(){
-  const q=($('ds').value||'').trim().toLowerCase();
-  $('dl').innerHTML=DN.map((n,i)=>[i+1,n]).filter(([id,n])=>!q||String(id).startsWith(q)||n.toLowerCase().includes(q)).map(([id,n])=>`<div class="di ${cur.d===id?'selected':''}" onclick="pickDiag(${id})"><span class="nm">${id}</span><span>${n}</span></div>`).join('')
-}
-function renderQuick(){
-  const c={};S.cases.forEach(x=>c[x.d]=(c[x.d]||0)+1);
-  let top=Object.keys(c).map(Number).sort((a,b)=>c[b]-c[a]).slice(0,6);
-  [1,2,9,33,35,39].forEach(i=>{if(top.length<6&&!top.includes(i))top.push(i)});
-  $('qp').innerHTML=top.map(id=>`<div class="chip ${cur.d===id?'selected':''}" onclick="pickDiag(${id})"><span class="nm">#${id}</span>${DN[id-1]}${c[id]?` <small>(${c[id]})</small>`:''}</div>`).join('')
-}
-function pinTog(f){S.pins[f]=!S.pins[f];save();sync()}
-function resetForm(){cur.g='';cur.a=-1;cur.d=0;cur.nb=(S.pins.t?cur.t:'New')==='New'?'Yes':'No';if(!S.pins.t)cur.t='New';if(!S.pins.sg)cur.sg='Non';$('ds').value='';sync();renderDiag();renderQuick()}
-function saveCase(){
-  if(!cur.g)return toast('⚠️ اختر الجنس');if(cur.a<0)return toast('⚠️ اختر الفئة العمرية');if(!cur.d)return toast('⚠️ اختر التشخيص');
-  if(!allowed(cur.d,cur.a,cur.g==='F'?0:1))return toast('⛔ هذه الخانة مقفلة في الاستمارة الرسمية لهذا التشخيص');
-  const date=$('wd').value,rec={date,g:cur.g,a:cur.a,t:cur.t,sg:cur.sg,d:cur.d,nb:cur.t==='New'&&cur.nb==='Yes'};
-  if(edit){Object.assign(S.cases.find(c=>c.u===edit),rec);edit=null;$('eb').classList.add('hidden');$('sv').textContent='✅ حفظ الحالة';$('sv').classList.remove('ed');toast('✅ تم تحديث الحالة')}
-  else{S.cases.push({u:uid(),time:new Date().toTimeString().slice(0,5),...rec});toast('✅ تم حفظ الحالة')}
-  save();resetForm();refresh()
-}
-function startEdit(u){
-  const c=S.cases.find(x=>x.u===u);if(!c)return;edit=u;$('wd').value=c.date;
-  cur={g:c.g,a:c.a,t:c.t,sg:c.sg,d:c.d,nb:c.nb?'Yes':'No'};sync();renderDiag();renderQuick();
-  $('eb').classList.remove('hidden');$('ebT').textContent='✏️ وضع التعديل ('+c.date+')';$('sv').textContent='💾 حفظ التعديلات';$('sv').classList.add('ed');refresh();scrollTo({top:0,behavior:'smooth'})
-}
-function cancelEdit(){edit=null;$('eb').classList.add('hidden');$('sv').textContent='✅ حفظ الحالة';$('sv').classList.remove('ed');resetForm()}
-function delCase(u){if(edit===u)cancelEdit();S.cases=S.cases.filter(c=>c.u!==u);save();refresh();renderQuick();toast('🗑️ تم الحذف')}
-function togG(u){const c=S.cases.find(x=>x.u===u);if(!c)return;if(!allowed(c.d,c.a,c.g==='F'?1:0))return toast('⛔ غير مسموح لهذا التشخيص');c.g=c.g==='F'?'M':'F';save();refresh()}
-function clearDay(){const d=$('wd').value;if(!confirm('مسح كل حالات '+d+'؟'))return;S.cases=S.cases.filter(c=>c.date!==d);save();refresh();renderQuick()}
-function serials(){const n={},m={};S.cases.forEach(c=>{n[c.date]=(n[c.date]||0)+1;m[c.u]=n[c.date]});return m}
+    <div class="submit-bar">
+      <div class="preview-pills" id="livePreviewPills"></div>
+      <button id="mainSaveBtn" class="btn-save-case" onclick="saveCase()">✅ حفظ الحالة وإضافتها للسجل التسلسلي بالأسفل</button>
+    </div>
 
-// ===== الإحالات والبيانات الإضافية =====
-function addRef(){
-  const t=+$('rT').value,g=$('rG').value,a=+$('rA').value;
-  if(!refOk(t,g==='F'?0:1,a))return toast('⛔ هذه الخانة مقفلة في الاستمارة لهذا النوع من الإحالات');
-  S.refs.push({u:uid(),date:$('wd').value,t,g,a,cm:$('rC').value.trim()});$('rC').value='';save();refresh();toast('✅ تمت إضافة الإحالة')
-}
-function delRef(u){S.refs=S.refs.filter(r=>r.u!==u);save();refresh()}
-function setX(el){const d=$('wd').value,e=S.extras[d]=S.extras[d]||{},a=e[el.dataset.k]=e[el.dataset.k]||[];a[+el.dataset.i]=Math.max(0,+el.value||0);save()}
-function renderExtras(){
-  const d=$('wd').value,e=S.extras[d]||{};$('xd').textContent=d;
-  $('xf').innerHTML=XF.map(([k,t,ls])=>`<div style="margin-bottom:10px"><b style="font-size:12.5px">${t}</b><div class="xg g5" style="margin-top:4px">${ls.map((l,i)=>`<div><label>${l}</label><input type="number" min="0" class="in" data-k="${k}" data-i="${i}" value="${(e[k]||[])[i]||''}" onchange="setX(this)"></div>`).join('')}</div></div>`).join('');
-  $('rl').innerHTML=S.refs.filter(r=>r.date===d).map(r=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding:4px 0"><span>${RT[r.t]} — ${r.g} / ${AL[r.a]} ${r.cm?'/ '+r.cm:''}</span><button class="bt rd" onclick="delRef('${r.u}')">🗑️</button></div>`).join('')||'<span style="color:#64748b">لا توجد إحالات لهذا اليوم</span>'
-}
+    <!-- جدول السجل التسلسلي المباشر أسفل نموذج الإدخال -->
+    <div class="card">
+      <div class="section-title">
+        <span>📋 سجل الحالات المدخلة بالتسلسل (اضغط على الجنس لتبديله أو ✏️ للتعديل)</span>
+        <div class="row-gap">
+          <select id="logScopeSelect" onchange="syncLogScope(this.value)" class="mini-select">
+            <option value="day">حالات اليوم المحدد</option>
+            <option value="week">حالات الأسبوع الحالي</option>
+            <option value="month">حالات الشهر الحالي</option>
+            <option value="all">جميع الحالات المحفوظة</option>
+          </select>
+          <button class="btn-action btn-pdf" onclick="clearCurrentDayCases()">🗑️ مسح اليوم</button>
+        </div>
+      </div>
+      <div class="table-wrap-rtl">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>#</th><th>الوقت</th><th>التاريخ</th><th>الجنس</th><th>العمر</th><th>الحالة / المستفيد</th><th>الفئة</th><th>التشخيص</th><th>إضافات</th><th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="dailyLogTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 
-// ===== السجل =====
-function renderLog(){
-  const cs=getCases().slice().reverse(),sr=serials();
-  $('lg').innerHTML=cs.map(c=>`<tr style="${edit===c.u?'background:#fef3c7':''}"><td><span class="bd">#${sr[c.u]}</span></td><td>${c.time}</td><td>${c.date}</td>
-  <td><span onclick="togG('${c.u}')" style="cursor:pointer;padding:2px 8px;border-radius:6px;font-weight:900;${c.g==='F'?'background:#fce7f3;color:#9d174d':'background:#dbeafe;color:#1e40af'}">${c.g==='F'?'👩 F':'👨 M'}</span></td>
-  <td dir="ltr"><b>${AL[c.a]}</b></td><td>${c.t}</td><td>${c.nb?'✔':'—'}</td><td>${c.sg}</td><td dir="ltr" style="text-align:left"><b>#${c.d}</b> ${DN[c.d-1]}</td>
-  <td><button class="bt or" onclick="startEdit('${c.u}')">✏️</button> <button class="bt rd" onclick="delCase('${c.u}')">🗑️</button></td></tr>`).join('')||'<tr><td colspan="10" style="padding:16px;color:#64748b">لا توجد حالات في هذا النطاق</td></tr>'
-}
+  <!-- التبويب 2: الإحالات والمؤشرات اليومية (Triage, GHO, Drugs, Comments) -->
+  <section id="tab-ops" class="hidden">
+    <div class="grid-2-resp">
+      <div class="card">
+        <div class="section-title"><span>🩺 الفرز التمريضي عند مدخل المركز (Triage Nurse - يوم <span class="opsDateLbl"></span>)</span></div>
+        <div class="grid-3">
+          <div class="form-group"><label>إناث (Female):</label><input type="number" min="0" id="opsTriageF" class="form-input" onchange="saveDailyOps()"></div>
+          <div class="form-group"><label>ذكور (Male):</label><input type="number" min="0" id="opsTriageM" class="form-input" onchange="saveDailyOps()"></div>
+          <div class="form-group"><label>الإجمالي (Total):</label><input type="text" id="opsTriageTot" class="form-input" readonly></div>
+        </div>
+      </div>
 
-// ===== الاستمارة الرسمية =====
-function agg(cs){
-  const m={},nc=[Array(6).fill(0),Array(6).fill(0)],fc=[Array(6).fill(0),Array(6).fill(0)],nb=[Array(6).fill(0),Array(6).fill(0)],sg={};
-  cs.forEach(c=>{
-    const g=c.g==='F'?0:1;(m[c.d]=m[c.d]||Z())[(c.t==='New'?0:12)+c.a*2+g]++;
-    (c.t==='New'?nc:fc)[g][c.a]++;if(c.nb&&c.t==='New')nb[g][c.a]++;
-    const k=c.sg==='Non'?'Host':c.sg;(sg[k]=sg[k]||[0,0,0,0])[(c.a<=3?0:2)+g]++
-  });
-  return{m,nc,fc,nb,sg}
-}
-const V=a=>{const f=a.reduce((s,v,i)=>s+(i%2?0:v),0),m=a.reduce((s,v,i)=>s+(i%2?v:0),0);return[...a,f,m,f+m]};
-const nz=v=>v>0?`<td class="nz">${v}</td>`:'<td>0</td>',tl=a=>a.map(v=>`<td>${v}</td>`).join('');
-function renderReport(){
-  const r=rng(),cs=getCases(),A=agg(cs),h=HF[S.fac.hf]||['','','',''],F=cs.filter(c=>c.g==='F').length,M=cs.length-F;
-  const per=scope==='day'?`${r[0]} (${dayName(r[0])})`:scope==='all'?'Cumulative':`${r[0]} → ${r[1]}`;
-  $('hG').textContent=h[0]||'__________';$('hD').textContent=h[1]||'__________';$('hF').textContent=h[2]||'__________';$('hP').textContent=per;
-  $('rOrg').textContent=S.fac.org;$('rMeta').textContent=`${scope.toUpperCase()} REPORT | TOTAL CASES: ${cs.length} (F: ${F} | M: ${M})`;
-  $('fR').textContent=S.fac.rep||h[3]||'__________';$('fT').textContent=S.fac.title||'__________';$('fN').textContent=cs.length;$('fS').textContent=`F: ${F} | M: ${M}`;$('fD').textContent=new Date().toISOString().slice(0,16).replace('T',' ');
-  // 1) المستفيدون: الجدد يُدخلون، والمتابعة = (جديد+متابعة) − المستفيدين الجدد
-  let h1=`<table class="mt" id="tBen"><thead><tr><th rowspan="2">Gender</th><th colspan="6" class="tn">NEW BENEFICIARIES</th><th rowspan="2" class="tt">Total New</th><th colspan="6" class="tf">FOLLOW UP</th><th rowspan="2" class="tt">Total Follow</th><th rowspan="2" class="tt">Total</th></tr><tr>${AL.map(a=>`<th class="tn">${a}</th>`).join('')}${AL.map(a=>`<th class="tf">${a}</th>`).join('')}</tr></thead><tbody>`;
-  const bs=Array(15).fill(0);
-  [0,1].forEach(g=>{const n=A.nb[g],f=AL.map((_,a)=>Math.max(0,A.nc[g][a]+A.fc[g][a]-n[a])),ns=sum(n),fs=sum(f),row=[...n,ns,...f,fs,ns+fs];row.forEach((v,i)=>bs[i]+=v);h1+=`<tr><td><b>${'FM'[g]}</b></td>${row.map(nz).join('')}</tr>`});
-  $('wBen').innerHTML=h1+`<tr class="tl"><td>Total</td>${tl(bs)}</tr></tbody></table>`;
-  // 2) الفئات الخاصة (Host تلقائي)
-  let h2=`<table class="mt" id="tSpec"><thead><tr><th rowspan="2" class="ts">Special Groups</th><th colspan="2" class="ts">0 - 18 Y</th><th colspan="2" class="ts">≥ 18 Y</th><th rowspan="2" class="tt">Total</th></tr><tr><th>F</th><th>M</th><th>F</th><th>M</th></tr></thead><tbody>`;
-  const ss=[0,0,0,0,0];['IDPs','Migrants','Disability','Host'].forEach(k=>{const v=A.sg[k]||[0,0,0,0],t=sum(v);[...v,t].forEach((x,i)=>ss[i]+=x);h2+=`<tr><td style="text-align:left;font-weight:800">${k}</td>${v.map(nz).join('')}<td><b>${t}</b></td></tr>`});
-  $('wSpec').innerHTML=h2+`<tr class="tl"><td style="text-align:left">Total</td>${tl(ss)}</tr></tbody></table>`;
-  // 3) مصفوفة 55 تشخيصاً
-  let h3=`<table class="mt" id="tMat"><thead><tr><th rowspan="3">#</th><th rowspan="3">Diagnosis</th><th colspan="12" class="tn">NEW CASES</th><th colspan="12" class="tf">FOLLOW UP CASES</th><th colspan="3" rowspan="2" class="tt">TOTAL</th></tr><tr>${[0,1].map(t=>AL.map(a=>`<th colspan="2" class="${t?'tf':'tn'}">${a}</th>`).join('')).join('')}</tr><tr>${'<th>F</th><th>M</th>'.repeat(12)}<th class="tt">F</th><th class="tt">M</th><th class="tt">ALL</th></tr></thead><tbody>`;
-  const sec=(lo,hi)=>{const s=Z();for(let d=lo;d<=hi;d++)(A.m[d]||Z()).forEach((v,i)=>s[i]+=v);return V(s)};
-  for(let d=1;d<=55;d++){
-    SEC.filter(s=>s[3]>=s[2]&&s[2]===d).forEach(s=>{h3+=`<tr class="${s[0]===s[0].toUpperCase()?'cat':'sub'}"><td colspan="2">${s[0]}. ${s[1]}</td>${tl(sec(s[2],s[3]))}</tr>`});
-    h3+=`<tr><td><b>${d}</b></td><td class="dn">${DN[d-1]}</td>${V(A.m[d]||Z()).map(nz).join('')}</tr>`
-  }
-  $('wMat').innerHTML=h3+`<tr class="tl"><td colspan="2">Total</td>${tl(sec(1,55))}</tr></tbody></table>`;
-  // 4) الإحالات
-  const rf=getRefs();
-  let h4=`<table class="mt" id="tRef"><thead><tr><th rowspan="3">Referrals</th>${AL.map(a=>`<th colspan="2">${a}</th>`).join('')}<th colspan="3" class="tt">Total</th><th rowspan="3">Comments (age, sex &amp; cause)</th></tr><tr>${'<th>F</th><th>M</th>'.repeat(6)}<th class="tt">F</th><th class="tt">M</th><th class="tt">ALL</th></tr></thead><tbody>`.replace('</tr><tr>${','</tr><tr>');
-  h4=h4.replace(/<th rowspan="3">Referrals/,'<th rowspan="2">Referrals').replace(/<th rowspan="3">Comments/,'<th rowspan="2">Comments');
-  RT.forEach((n,t)=>{const a=Z(),l=rf.filter(x=>x.t===t);l.forEach(x=>a[x.a*2+(x.g==='F'?0:1)]++);h4+=`<tr><td class="dn">${n}</td>${V(a.slice(0,12).concat()).slice(0,12).concat([]).map(nz).join('')}${(()=>{const v=V(a);return[v[24],v[25],v[26]].map(nz).join('')})()}<td class="cm">${l.map(x=>`${AL[x.a]}/${x.g}${x.cm?'/'+x.cm:''}`).join('; ')}</td></tr>`});
-  $('wRef').innerHTML=h4+'</tbody></table>';
-  // 5) IMCI وبقية المؤشرات (تلقائي من الحالات + مدخلات اليوم)
-  const im=(a,g)=>A.nc[g][a]+A.fc[g][a],row=(n,d,t)=>`<tr><td class="dn">${n}</td><td class="cm">${d}</td><td><b>${t}</b></td></tr>`;
-  const tri=[X('tri',0),X('tri',1)],va=[0,1,2,3].map(i=>X('va',i)),el=[X('eld',0),X('eld',1)],gh=[X('gho',0),X('gho',1)],dr=[0,1,2,3,4].map(i=>X('dr',i));
-  const D=['Nifedipine 10mg','Methyldopa 250mg','Misoprostol 200mcg','Hydralazine 20mg','MgSO4 0.5g/ml'];
-  $('wOth').innerHTML=`<table class="mt" id="tOth"><thead><tr><th>Indicator</th><th>Details</th><th class="tt">Total</th></tr></thead><tbody>`+
-   row('Total cases triaged at HC entry',`Female: ${tri[0]} | Male: ${tri[1]}`,sum(tri))+
-   row('Patients receiving Vitamin A',`0-6 m F: ${va[0]} | M: ${va[1]} — 6-59 m F: ${va[2]} | M: ${va[3]}`,sum(va))+
-   row('Total # of IMCI consultations (auto)',`0-6 m F: ${im(0,0)} | M: ${im(0,1)} — 7-59 m F: ${im(1,0)} | M: ${im(1,1)}`,im(0,0)+im(0,1)+im(1,0)+im(1,1))+
-   row('Consultations of Elderly (> 65 Y)',`Female: ${el[0]} | Male: ${el[1]}`,sum(el))+
-   row('Number of GHO trained (on-job coaching)',`Female: ${gh[0]} | Male: ${gh[1]}`,sum(gh))+
-   row('Restricted-use drugs (women treated)',D.map((n,i)=>`${n}: ${dr[i]}`).join(' | '),sum(dr))+'</tbody></table>'
-}
-function refresh(){
-  const d=$('wd').value;$('dn').textContent=dayName(d);
-  const n=S.cases.filter(c=>c.date===d).length;
-  $('bNext').textContent='القادمة: #'+(n+1);$('bTot').textContent='الإجمالي: '+S.cases.length;
-  renderLog();renderExtras();renderReport()
-}
+      <div class="card">
+        <div class="section-title"><span>🎓 تدريب الكوادر على رأس العمل (GHO On-Job Coaching - يوم <span class="opsDateLbl"></span>)</span></div>
+        <div class="grid-3">
+          <div class="form-group"><label>إناث (Female):</label><input type="number" min="0" id="opsGhoF" class="form-input" onchange="saveDailyOps()"></div>
+          <div class="form-group"><label>ذكور (Male):</label><input type="number" min="0" id="opsGhoM" class="form-input" onchange="saveDailyOps()"></div>
+          <div class="form-group"><label>الإجمالي (Total):</label><input type="text" id="opsGhoTot" class="form-input" readonly></div>
+        </div>
+      </div>
+    </div>
 
-// ===== المرفق =====
-function openFac(){
-  $('fHf').innerHTML='<option value="-1">— اختر المرفق —</option>'+HF.map((h,i)=>`<option value="${i}">${h[2]} ${h[0]?'('+h[1]+')':''}</option>`).join('');
-  $('fHf').value=S.fac.hf;$('fRep').value=S.fac.rep;$('fTitle').value=S.fac.title;$('fOrg').value=S.fac.org;fillHf();$('facM').classList.remove('hidden')
-}
-function fillHf(){const h=HF[+$('fHf').value];$('fInfo').textContent=h?`${h[0]} › ${h[1]} — Doctor: ${h[3]||'-'}`:''}
-function saveFac(){S.fac={hf:+$('fHf').value,rep:$('fRep').value.trim(),title:$('fTitle').value.trim(),org:$('fOrg').value.trim()||'MoPHP / Health Cluster'};save();$('facM').classList.add('hidden');refresh();toast('✅ تم الحفظ')}
+    <div class="card">
+      <div class="section-title"><span>🚑 إضافة إحالة مستقلة سريعة (تُضاف تلقائياً لجدول Referrals اليومي والأسبوعي والشهري)</span></div>
+      <div class="grid-4">
+        <div class="form-group"><label>نوع الإحالة:</label><select id="saRefType" class="form-input"></select></div>
+        <div class="form-group"><label>الجنس:</label><select id="saRefGender" class="form-input"><option value="Female">Female</option><option value="Male">Male</option></select></div>
+        <div class="form-group"><label>الفئة العمرية:</label><select id="saRefAge" class="form-input"></select></div>
+        <div class="form-group"><label>المساعدة النقدية:</label><select id="saRefCash" class="form-input"><option value="0">لا (No)</option><option value="1">نعم (Cash Assistance)</option></select></div>
+      </div>
+      <div class="row-gap">
+        <input type="text" id="saRefComment" class="form-input flex-1" placeholder="تفاصيل الحالة الإلزامية (العمر الدقيق، الجنس، سبب الإحالة)...">
+        <button class="btn-action btn-excel" onclick="addStandaloneReferral()">➕ إضافة الإحالة</button>
+      </div>
+      <div id="standaloneReferralsList" class="mini-list"></div>
+    </div>
 
-// ===== التصدير =====
-const fn=()=>{const d=new Date($('wd').value+'T00:00:00'),h=(HF[S.fac.hf]||['','','HF'])[2].replace(/\W+/g,'-');return`YEM-HOD-ECHO_23028-Morbidity_Report-${h}-${MON[d.getMonth()]}-${String(d.getFullYear()).slice(2)}${scope==='day'?'_'+$('wd').value:'_'+scope}`};
-async function send(b64,name,mime){
-  if(window.plugins&&window.plugins.socialsharing){window.plugins.socialsharing.shareWithOptions({message:name,subject:name,files:[`df:${name};base64,${b64}`],chooserTitle:'حفظ / مشاركة'},()=>toast('✅ تم'),()=>window.plugins.socialsharing.share(null,name,`data:${mime};base64,${b64}`,null));return}
-  const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);const blob=new Blob([u],{type:mime});
-  try{const f=new File([blob],name,{type:mime});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==='AbortError')return}
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},2500);toast('📥 '+name)
-}
-async function exportXlsx(){
-  if(typeof XLSX==='undefined')return toast('⚠️ مكتبة Excel غير جاهزة');
-  renderReport();const r=rng(),cs=getCases(),h=HF[S.fac.hf]||['','','',''],sr=serials(),wb=XLSX.utils.book_new(),add=(s,n)=>XLSX.utils.book_append_sheet(wb,s,n);
-  add(XLSX.utils.aoa_to_sheet([['MORBIDITY-IMCI DAILY FORM - REPORT INFORMATION'],['Project','ECHO (YEM-HOD-ECHO 23028)'],['Governorate',h[0]],['District',h[1]],['Health Facility',h[2]],['Collected by',S.fac.rep||h[3]],['Job title',S.fac.title],['Organization',S.fac.org],['Period',r[0]+' to '+r[1]],['Total cases',cs.length]]),'Report Info');
-  [['tBen','Beneficiaries'],['tSpec','Special Groups'],['tMat','Morbidity 1-55'],['tRef','Referrals'],['tOth','IMCI & Other']].forEach(([i,n])=>add(XLSX.utils.table_to_sheet($(i)),n));
-  add(XLSX.utils.aoa_to_sheet([['Serial','Date','Day','Time','Gender','Age Group','Case Type','New Beneficiary','Special Group','Dx #','Diagnosis'],...cs.map(c=>[sr[c.u],c.date,dayName(c.date),c.time,c.g,AG[c.a],c.t,c.nb?'Yes':'No',c.sg,c.d,DN[c.d-1]])]),'Cases Log');
-  await send(XLSX.write(wb,{bookType:'xlsx',type:'base64'}),fn()+'.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-}
-async function exportPdf(){
-  if(typeof html2pdf==='undefined')return toast('⚠️ مكتبة PDF غير جاهزة');
-  renderReport();$('ov').classList.remove('hidden');
-  // منصة تصوير معزولة عند (0,0) لتفادي قص الأعمدة على شاشات الهواتف
-  const st=$('stage'),W=1250,cl=$('rep').cloneNode(true);cl.removeAttribute('id');cl.classList.add('pdfm');cl.style.cssText=`width:${W}px;margin:0;padding:6px`;
-  st.innerHTML='';st.style.width=W+'px';st.style.display='block';st.appendChild(cl);await sleep(250);
-  try{
-    const uri=await html2pdf().set({margin:3,filename:fn()+'.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,scrollX:0,scrollY:0,x:0,y:0,windowWidth:W,width:W},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy']}}).from(cl).outputPdf('datauristring');
-    st.style.display='none';st.innerHTML='';$('ov').classList.add('hidden');await send(uri.split(',')[1],fn()+'.pdf','application/pdf')
-  }catch(e){st.style.display='none';st.innerHTML='';$('ov').classList.add('hidden');toast('⚠️ تعذر توليد PDF: '+(e.message||e))}
-}
+    <div class="card">
+      <div class="section-title"><span>📝 ملاحظات اتجاه الأمراض للتقرير الشهري (HFMD / HFAM Comments)</span></div>
+      <div class="grid-3">
+        <div class="form-group"><label>التشخيص (1-55):</label><select id="cmtDiagSelect" class="form-input"></select></div>
+        <div class="form-group"><label>ملاحظة الطبيب (HFMD Comment):</label><input type="text" id="cmtHfmd" class="form-input" placeholder="ملاحظات اتجاه المرض..."></div>
+        <div class="form-group"><label>ملاحظة المدير (HFAM Comment):</label><input type="text" id="cmtHfam" class="form-input" placeholder="ملاحظات المتابعة..."></div>
+      </div>
+      <button class="btn-action btn-facility" onclick="saveDiagComment()">💾 حفظ الملاحظة على التشخيص</button>
+      <div id="savedCommentsList" class="mini-list"></div>
+    </div>
+  </section>
 
-// ===== النسخ الاحتياطي =====
-function openBk(){$('bkN').textContent=S.cases.length;$('bkT').value='';$('bkM').classList.remove('hidden')}
-const bkPayload=()=>JSON.stringify({v:5,cases:S.cases,refs:S.refs,extras:S.extras,fac:S.fac},null,1);
-const u8b64=s=>btoa(unescape(encodeURIComponent(s)));
-const bkExport=()=>send(u8b64(bkPayload()),`Morbidity_Backup_${$('wd').value}.json`,'application/json');
-function bkCopy(){const j=bkPayload();$('bkT').value=j;(navigator.clipboard?navigator.clipboard.writeText(j):Promise.reject()).then(()=>toast('📋 تم النسخ')).catch(()=>toast('📋 حدّد النص وانسخه يدوياً'))}
-function bkRestore(txt){
-  let o=null;try{o=JSON.parse(String(txt).replace(/^\uFEFF/,'').trim())}catch(e){const a=txt.indexOf('['),b=txt.lastIndexOf(']');try{o=JSON.parse(txt.slice(a,b+1))}catch(x){}}
-  if(!o)return toast('⚠️ النص غير صالح');
-  const raw=Array.isArray(o)?o:(o.cases||o.records||o.data||[]),cs=raw.map(norm).filter(Boolean);
-  if(!cs.length&&!(o.refs||[]).length)return toast('⚠️ لا توجد سجلات صالحة');
-  if(document.querySelector('input[name=rm]:checked').value==='replace'){S.cases=cs;S.refs=o.refs||[];S.extras=o.extras||{}}
-  else{const ids=new Set(S.cases.map(c=>c.u));cs.forEach(c=>{if(!ids.has(c.u))S.cases.push(c)});const rid=new Set(S.refs.map(r=>r.u));(o.refs||[]).forEach(r=>{if(!rid.has(r.u))S.refs.push(r)});Object.keys(o.extras||{}).forEach(d=>{if(!S.extras[d])S.extras[d]=o.extras[d]})}
-  if(o.fac)S.fac={...S.fac,...o.fac};
-  save();if(S.cases.length)$('wd').value=S.cases[S.cases.length-1].date;$('bkM').classList.add('hidden');refresh();renderQuick();toast('✅ تمت الاستعادة: '+S.cases.length+' حالة')
-}
-function bkFile(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{bkRestore(ev.target.result);e.target.value=''};r.readAsText(f)}
+  <!-- التبويب 3: الاستمارة الرسمية الكاملة (يومي / أسبوعي W1-W5 / شهري / مخصص) -->
+  <section id="tab-report" class="hidden">
+    <div class="card no-print report-toolbar">
+      <div class="row-gap">
+        <strong>نطاق الاستمارة:</strong>
+        <select id="reportScope" onchange="onReportScopeChange()" class="mini-select">
+          <option value="day">يومي (اليوم المحدد)</option>
+          <option value="W1">الأسبوع الأول (W1)</option>
+          <option value="W2">الأسبوع الثاني (W2)</option>
+          <option value="W3">الأسبوع الثالث (W3)</option>
+          <option value="W4">الأسبوع الرابع (W4)</option>
+          <option value="W5">الأسبوع الخامس (W5)</option>
+          <option value="month">التقرير الشهري الموحد (Monthly)</option>
+          <option value="custom">نطاق تاريخ مخصص</option>
+          <option value="all">تراكمي (كل الذاكرة)</option>
+        </select>
+        <input type="month" id="reportMonthPicker" class="mini-select" onchange="renderReports()">
+        <div id="customRangeWrap" class="row-gap hidden">
+          <input type="date" id="rangeStart" class="mini-select" onchange="renderReports()">
+          <span>إلى</span>
+          <input type="date" id="rangeEnd" class="mini-select" onchange="renderReports()">
+        </div>
+      </div>
+      <div class="row-gap">
+        <button class="btn-action btn-excel" onclick="exportOfficialExcel()">📊 تصدير Excel الرسمي</button>
+        <button class="btn-action btn-pdf" onclick="openPdfStudio()">📐 معاينة وضبط PDF</button>
+      </div>
+    </div>
 
-function init(){
-  load();
-  chips('cG','g',[['F','👩 Female (أنثى)','F'],['M','👨 Male (ذكر)','M']]);
-  chips('cA','a',AL.map((l,i)=>[i,l]));
-  chips('cT','t',[['New','🆕 New (جديدة)'],['Follow up','🔄 Follow up (متابعة)']]);
-  chips('cN','nb',[['Yes','✔ نعم (مستفيد جديد)'],['No','✖ لا']]);
-  chips('cS','sg',[['Non','Non / Host (مجتمع مضيف)'],['IDPs','⛺ IDPs'],['Migrants','🌍 Migrants'],['Disability','♿ Disability']]);
-  const so=[['day','اليوم'],['week','الأسبوع (سبت-خميس)'],['month','الشهر'],['all','الكل']].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');$('sc1').innerHTML=so;$('sc2').innerHTML=so;
-  $('rT').innerHTML=RT.map((n,i)=>`<option value="${i}">${n}</option>`).join('');$('rA').innerHTML=AL.map((l,i)=>`<option value="${i}">${l}</option>`).join('');
-  $('wd').value=today();if(!S.cases.some(c=>c.date===today())&&S.cases.length)$('wd').value=S.cases[S.cases.length-1].date;
-  if(S.pins.t)cur.nb='Yes';sync();renderDiag();renderQuick();refresh()
-}
-window.addEventListener('DOMContentLoaded',init);
-</script>
+    <div id="printableReportArea" class="report-sheet"></div>
+  </section>
+
+  <!-- التبويب 4: لوحة الإحصائيات والإنذار الوبائي eDEWS -->
+  <section id="tab-analytics" class="hidden">
+    <div id="analyticsContainer"></div>
+  </section>
+</main>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
