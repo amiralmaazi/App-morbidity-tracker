@@ -191,7 +191,7 @@ table.morbidity-table th { background: #e2e8f0; font-weight: 800; }
 .studio-paper table.morbidity-table th, .studio-paper table.morbidity-table td { padding: var(--pdf-cell-pad-v) var(--pdf-cell-pad-h) !important; line-height: 1.06 !important; }
 
 #pdfRenderStage { position: fixed; top: 0; left: 0; z-index: 8500; background: #fff; display: none; direction: ltr; }
-.capture-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.95); color: #fff; z-index: 9000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-weight: 900; }
+.capture-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.95); color: #fff; z-index: 9000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-weight: 900; text-align: center; padding: 20px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 11px 20px; border-radius: 999px; font-weight: 800; font-size: 13px; z-index: 9999; display: none; text-align: center; }
 
 @media print {
