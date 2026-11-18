@@ -815,7 +815,7 @@ function renderReports() {
     benSums[6] += newB;
     const fArr = AGE_GROUPS.map((ag, i) => {
       const totalAge = cases.filter(c => chk(c) && c.ageGroup === ag).length;
-      const fb = Math.max(0, totalAge - nArr[i]); // exact ECHO formula: Follow up = Total - New Beneficiaries
+      const fb = Math.max(0, totalAge - nArr[i]);
       fuB += fb; benSums[7 + i] += fb; return fb;
     });
     benSums[13] += fuB;
@@ -962,7 +962,7 @@ function renderReports() {
 
     <div class="report-row-split">
       <div style="flex:2.2;min-width:480px;">
-        <div class="report-subhead">1. Beneficiaries Summary (NEW BENEFICIARIES & FOLLOW UP)</div>
+        <div class="report-subhead">1. Beneficiaries Summary (NEW BENEFICIARIES &amp; FOLLOW UP)</div>
         <div class="table-scroll"><table class="morbidity-table">
           <thead>
             <tr><th rowspan="2">Gender</th><th colspan="6" class="th-new">NEW BENEFICIARIES</th><th rowspan="2" class="th-total">Total</th><th colspan="6" class="th-follow">FOLLOW UP</th><th rowspan="2" class="th-total">Total</th><th rowspan="2" class="th-total">Grand</th></tr>
@@ -992,10 +992,10 @@ function renderReports() {
 
     <div class="report-row-split">
       <div style="flex:2;min-width:520px;">
-        <div class="report-subhead">4. Referrals & Cash Assistance</div>
+        <div class="report-subhead">4. Referrals &amp; Cash Assistance</div>
         <div class="table-scroll"><table class="morbidity-table">
           <thead>
-            <tr><th rowspan="2">REFERRALS</th>${AGE_LABELS_SHORT.map(a=>`<th colspan="2" class="th-ref">${a}</th>`).join('')}<th colspan="2" class="th-total">Total</th><th rowspan="2" class="th-total">ALL</th><th rowspan="2">COMMENTS (Age, Sex & Cause)</th></tr>
+            <tr><th rowspan="2">REFERRALS</th>${AGE_LABELS_SHORT.map(a=>`<th colspan="2" class="th-ref">${a}</th>`).join('')}<th colspan="2" class="th-total">Total</th><th rowspan="2" class="th-total">ALL</th><th rowspan="2">COMMENTS (Age, Sex &amp; Cause)</th></tr>
             <tr>${AGE_GROUPS.map(()=>`<th>F</th><th>M</th>`).join('')}<th>F</th><th>M</th></tr>
           </thead>
           <tbody>
@@ -1006,7 +1006,7 @@ function renderReports() {
       </div>
 
       <div style="flex:1;min-width:300px;">
-        <div class="report-subhead">5. Special Groups (0-18 Y & &ge;18 Y)</div>
+        <div class="report-subhead">5. Special Groups (0-18 Y &amp; &ge;18 Y)</div>
         <div class="table-scroll"><table class="morbidity-table">
           <thead><tr><th rowspan="2" class="th-special">Special Groups</th><th colspan="2" class="th-special">0 - 18 Y</th><th colspan="2" class="th-special">&ge; 18 Y</th><th rowspan="2" class="th-total">Total</th></tr><tr><th>F</th><th>M</th><th>F</th><th>M</th></tr></thead>
           <tbody>${spRowsHtml}</tbody>
@@ -1054,7 +1054,7 @@ function renderReports() {
 
     <div class="official-footer-box">
       <div><strong>Prepared By:</strong><div>${facility.doctor || '____________________'}</div><div>${facility.title || ''}</div></div>
-      <div><strong>HFMD / Team Leader Sign & Stamp:</strong><div class="sign-line"></div></div>
+      <div><strong>HFMD / Team Leader Sign &amp; Stamp:</strong><div class="sign-line"></div></div>
       <div><strong>Export Verification:</strong><div>Cases: <b>${cases.length}</b> | Refs: <b>${refs.length}</b></div><div>Generated: ${new Date().toISOString().slice(0,16).replace('T',' ')}</div></div>
     </div>
   `;
@@ -1184,6 +1184,8 @@ async function exportFinalPDF() {
   const targetWidth = Number(document.getElementById('ctrlPaperWidth').value) || 1360;
   const stage = document.getElementById('pdfRenderStage');
   const overlay = document.getElementById('captureOverlay');
+  const statusEl = document.getElementById('captureStatusText');
+  statusEl.textContent = 'جاري تجهيز وتوليد ملف الـ PDF الرسمي بدقة عالية...';
   overlay.classList.remove('hidden');
 
   stage.innerHTML = '';
@@ -1214,80 +1216,24 @@ async function exportFinalPDF() {
   }
 }
 
-// -------------------- تصدير ملف Excel الرسمي متعدد الصفحات --------------------
+// -------------------- تصدير ملف Excel الرسمي المطابق للقالب 100% --------------------
 async function exportOfficialExcel() {
-  if (typeof XLSX === 'undefined') return showToast('⚠️ مكتبة الإكسل غير جاهزة');
-  const wb = XLSX.utils.book_new();
-  const ds = buildReportDataset();
-  const monthTag = document.getElementById('reportMonthPicker').value || document.getElementById('workDate').value;
+  const overlay = document.getElementById('captureOverlay');
+  const statusEl = document.getElementById('captureStatusText');
+  statusEl.textContent = 'جاري بناء ملف Excel الرسمي (ECHO 23028) بجميع التنسيقات والألوان والصفحات الثمانية...';
+  overlay.classList.remove('hidden');
 
-  // Sheet 1: Daily Cases Log
-  const logRows = [['Serial #','Date','Week','Time','Gender','Age Group','Case Type','Beneficiary Type','Special Group','Diagnosis #','Diagnosis Name','Elderly >65','Vitamin A','Referral Type','Cash Assistance','Referral Comment','Restricted Drugs']];
-  ds.cases.forEach(c => logRows.push([
-    c.serial, c.date, getReportingWeekNumber(c.date), c.time, c.gender, c.ageGroup, c.caseType, c.benType || c.caseType,
-    c.specialGroup, c.diagId, c.diagName, c.elderly65 ? 'Yes' : 'No', c.vitA ? 'Yes' : 'No',
-    c.referral ? c.referral.type : '', c.referral && c.referral.cash ? 'Yes' : '', c.referral ? c.referral.comment : '',
-    (c.restrictedDrugs || []).join(', ')
-  ]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(logRows), 'Daily Cases Log');
-
-  // Sheet 2: Consolidated Morbidity 1-55
-  const matHeader = ['SN', 'Diagnosis'];
-  AGE_LABELS_SHORT.forEach(a => matHeader.push(`New ${a} F`, `New ${a} M`));
-  AGE_LABELS_SHORT.forEach(a => matHeader.push(`FU ${a} F`, `FU ${a} M`));
-  matHeader.push('Total F', 'Total M', 'ALL', 'HFMD Comments', 'HFAM Comments');
-  const matRows = [
-    ['COLLECTION SITE:', facility.shortName, 'GOVERNORATE:', facility.gov, 'DISTRICT:', facility.dist, 'COLLECTED BY:', facility.doctor],
-    ['REPORT SCOPE:', ds.label, 'TRIAGE F:', ds.triageF, 'TRIAGE M:', ds.triageM, 'eDEWS Daily:', ds.edewsDaily, 'eDEWS Weekly:', ds.edewsWeekly],
-    [],
-    matHeader
-  ];
-  DIAGNOSES.forEach(d => {
-    const dc = ds.cases.filter(c => c.diagId === d.id);
-    const row = [d.id, d.name];
-    AGE_GROUPS.forEach(ag => row.push(dc.filter(c => c.caseType==='New' && c.ageGroup===ag && isFemaleCase(c)).length, dc.filter(c => c.caseType==='New' && c.ageGroup===ag && isMaleCase(c)).length));
-    AGE_GROUPS.forEach(ag => row.push(dc.filter(c => c.caseType==='Follow up' && c.ageGroup===ag && isFemaleCase(c)).length, dc.filter(c => c.caseType==='Follow up' && c.ageGroup===ag && isMaleCase(c)).length));
-    const tf = dc.filter(isFemaleCase).length, tm = dc.filter(isMaleCase).length;
-    const cm = diagComments[d.id] || {};
-    row.push(tf, tm, tf + tm, cm.hfmd || '', cm.hfam || '');
-    matRows.push(row);
-  });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(matRows), 'Consolidated Form');
-
-  // Sheet 3: Referrals, Special Groups, Drugs & IMCI
-  const extraRows = [
-    ['REFERRALS SUMMARY'],
-    ['Referral Type', 'Female', 'Male', 'Total', 'Cash Assistance', 'Comments']
-  ];
-  REFERRAL_TYPES.forEach(rt => {
-    const rl = ds.refs.filter(r => r.type === rt.id);
-    const f = rl.filter(isFemaleCase).length, m = rl.filter(isMaleCase).length;
-    extraRows.push([rt.label, f, m, f + m, rl.filter(r => r.cash).length, rl.map(r => r.comment).filter(Boolean).join('; ')]);
-  });
-  extraRows.push([], ['SPECIAL GROUPS'], ['Group', '0-18Y F', '0-18Y M', '>=18Y F', '>=18Y M', 'Total']);
-  SPECIAL_GROUPS.forEach(sg => {
-    const uF = ds.cases.filter(c => c.specialGroup===sg && UNDER_18_AGES.includes(c.ageGroup) && isFemaleCase(c)).length;
-    const uM = ds.cases.filter(c => c.specialGroup===sg && UNDER_18_AGES.includes(c.ageGroup) && isMaleCase(c)).length;
-    const oF = ds.cases.filter(c => c.specialGroup===sg && OVER_18_AGES.includes(c.ageGroup) && isFemaleCase(c)).length;
-    const oM = ds.cases.filter(c => c.specialGroup===sg && OVER_18_AGES.includes(c.ageGroup) && isMaleCase(c)).length;
-    extraRows.push([sg, uF, uM, oF, oM, uF+uM+oF+oM]);
-  });
-  extraRows.push([], ['RESTRICTED-USE DRUGS (FEMALE)'], ['Drug', 'Patients Treated']);
-  RESTRICTED_DRUGS.forEach(dr => extraRows.push([dr.label, ds.cases.filter(c => c.restrictedDrugs && c.restrictedDrugs.includes(dr.id)).length]));
-  extraRows.push([], ['IMCI, ELDERLY & GHO'], ['Indicator', 'Female', 'Male', 'Total']);
-  extraRows.push(['Vitamin A (<5Y)', ds.cases.filter(c=>c.vitA && isFemaleCase(c)).length, ds.cases.filter(c=>c.vitA && isMaleCase(c)).length, ds.cases.filter(c=>c.vitA).length]);
-  extraRows.push(['Elderly (>65 Yrs)', ds.cases.filter(c=>c.elderly65 && isFemaleCase(c)).length, ds.cases.filter(c=>c.elderly65 && isMaleCase(c)).length, ds.cases.filter(c=>c.elderly65).length]);
-  extraRows.push(['GHO Trained', ds.ghoF, ds.ghoM, ds.ghoF + ds.ghoM]);
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(extraRows), 'Referrals & IMCI');
-
-  // Sheet 4: Facilities List
-  const facRows = [['Project','Governorate','District','HF Name-Cluster','Short Name','Doctor']];
-  ECHO_FACILITIES.forEach(f => facRows.push([f.project, f.gov, f.dist, f.clusterName, f.shortName, f.doctor]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(facRows), 'list');
-
-  const b64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-  const fname = `${PROJECT_CODE}-Morbidity Report-${facility.shortName || 'HF'}-${monthTag}.xlsx`.replace(/[\\/:*?"<>|]/g, '_');
-  await dispatchBase64File(b64, fname, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  try {
+    const targetMonth = document.getElementById('reportMonthPicker').value || document.getElementById('workDate').value.slice(0, 7);
+    const { pureBase64, filename } = await exportExactOfficialEchoExcel(
+      allCases, dailyOps, standaloneRefs, diagComments, facility, targetMonth
+    );
+    overlay.classList.add('hidden');
+    await dispatchBase64File(pureBase64, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  } catch (err) {
+    overlay.classList.add('hidden');
+    showToast('⚠️ تعذر تصدير القالب الرسمي: ' + (err.message || err));
+  }
 }
 
 // -------------------- النسخ الاحتياطي والاستعادة الشاملة --------------------
