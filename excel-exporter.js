@@ -646,7 +646,7 @@ async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standalone
       };
 
       const dCases = wkCases.filter(c => matchSlot(c.date));
-      const dRefs = wkRefs.filter(c => matchSlot(c.date));
+      const dRefs = wkRefs.filter(r => matchSlot(c.date));
       const dOps = { triageF: 0, triageM: 0, ghoF: 0, ghoM: 0 };
       Object.entries(dailyOpsObj || {}).forEach(([dStr, v]) => {
         if (!dStr.startsWith(monthStr)) return;
