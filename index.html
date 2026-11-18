@@ -4,1837 +4,434 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0f766e">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<title>Daily Morbidity Form Tracker Pro</title>
-<link rel="manifest" href="manifest.json">
-
-<!-- جسر أندرويد الأساسي لعمل الحفظ والمشاركة والطباعة داخل APK -->
+<title>Daily Morbidity Tracker Pro</title>
 <script src="cordova.js"></script>
-
-<!-- المكتبات الخارجية (تعمل أونلاين في الموقع وأوفلاين داخل الـ APK) -->
-<script src="lib/xlsx.full.min.js" onerror="this.src='https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js'"></script>
-<script src="lib/html2pdf.bundle.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
-  :root {
-    --primary: #0f766e;
-    --primary-dark: #115e59;
-    --primary-light: #ccfbf1;
-    --bg: #f1f5f9;
-    --card: #ffffff;
-    --text: #0f172a;
-    --muted: #64748b;
-    --border: #cbd5e1;
-    --danger: #dc2626;
-    --warning: #d97706;
-    --pdf-font-size: 7.3px;
-    --pdf-cell-pad-v: 1.4px;
-    --pdf-cell-pad-h: 2px;
-    --pdf-diag-width: 150px;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
-  body { margin: 0; padding: 0; background: var(--bg); color: var(--text); padding-bottom: 60px; overflow-x: hidden; }
-
-  /* الشريط العلوي */
-  .app-header {
-    background: linear-gradient(135deg, #0f766e, #0d9488);
-    color: #fff; padding: 12px 14px; position: sticky; top: 0; z-index: 100;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  }
-  .header-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; max-width: 1280px; margin: 0 auto; }
-  .app-title { font-size: 17px; font-weight: 900; margin: 0; display: flex; align-items: center; gap: 8px; }
-  .badges-wrap { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .badge-serial { background: #fef08a; color: #854d0e; padding: 4px 12px; border-radius: 999px; font-weight: 900; font-size: 13px; }
-  .badge-total-db { background: rgba(255,255,255,0.22); color: #fff; padding: 4px 10px; border-radius: 999px; font-weight: 800; font-size: 12px; }
-
-  .controls-bar {
-    display: flex; flex-wrap: wrap; gap: 6px; margin: 10px auto 0; align-items: center;
-    background: rgba(255,255,255,0.14); padding: 8px 10px; border-radius: 10px; max-width: 1280px;
-  }
-  .controls-bar label { font-size: 12px; font-weight: 800; }
-  .date-input { padding: 6px 10px; border-radius: 6px; border: none; font-weight: 800; font-size: 13px; color: #0f172a; background: #fff; }
-
-  .btn-action {
-    border: none; padding: 8px 11px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer;
-    display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: #fff; transition: 0.15s;
-  }
-  .btn-action:active { transform: scale(0.96); }
-  .btn-excel { background: #16a34a; }
-  .btn-pdf { background: #dc2626; }
-  .btn-share { background: #2563eb; }
-  .btn-backup { background: #1e293b; }
-  .btn-facility { background: #0284c7; }
-  .btn-edit { background: #d97706; }
-
-  /* التبويبات */
-  .tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-width: 1280px; margin: 12px auto 0; padding: 0 12px; }
-  .tab-btn {
-    padding: 12px 10px; border: 2px solid var(--border); background: #fff; color: var(--muted);
-    border-radius: 10px; font-weight: 900; font-size: 13.5px; cursor: pointer; text-align: center;
-  }
-  .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 4px 10px rgba(15,118,110,0.25); }
-
-  .container { max-width: 1280px; margin: 12px auto; padding: 0 12px; }
-  .card { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
-  .section-title { font-size: 14px; font-weight: 900; margin: 0 0 10px 0; color: #0f172a; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
-
-  /* زر التثبيت (Pin) */
-  .pin-btn {
-    border: 1.5px solid #cbd5e1; background: #f8fafc; color: #475569; padding: 4px 10px;
-    border-radius: 999px; font-size: 11.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
-  }
-  .pin-btn.pinned { background: #fef08a; border-color: #ca8a04; color: #854d0e; }
-
-  .edit-mode-banner {
-    background: #fffbeb; border: 2px solid #f59e0b; color: #92400e; padding: 10px 14px;
-    border-radius: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
-    font-weight: 900; font-size: 13.5px;
-  }
-
-  /* الشبكات والأزرار */
-  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .grid-4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  @media (min-width: 640px) { .grid-4 { grid-template-columns: repeat(4, 1fr); } }
-
-  .choice-btn {
-    padding: 12px 8px; border: 2px solid var(--border); border-radius: 10px; background: #f8fafc;
-    font-weight: 800; font-size: 13.5px; color: #334155; cursor: pointer; text-align: center; user-select: none;
-  }
-  .choice-btn.selected { background: var(--primary-light); border-color: var(--primary); color: var(--primary-dark); box-shadow: 0 0 0 2px rgba(15,118,110,0.18); }
-  .choice-btn.female.selected { background: #fce7f3; border-color: #db2777; color: #9d174d; }
-  .choice-btn.male.selected { background: #dbeafe; border-color: #2563eb; color: #1e40af; }
-
-  /* شريط التشخيصات السريعة (Top 6 Quick-Picks) */
-  .quick-picks-wrap { margin-bottom: 10px; background: #f0fdfa; border: 1px dashed #0d9488; border-radius: 10px; padding: 8px; }
-  .quick-picks-title { font-size: 11.5px; font-weight: 900; color: #0f766e; margin-bottom: 6px; display: flex; justify-content: space-between; }
-  .quick-picks-grid { display: flex; flex-wrap: wrap; gap: 6px; direction: ltr; }
-  .quick-chip {
-    background: #fff; border: 1.5px solid #99f6e4; border-radius: 8px; padding: 6px 10px;
-    font-size: 12px; font-weight: 800; color: #134e4a; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-  }
-  .quick-chip.selected { background: #fef9c3; border-color: #ca8a04; color: #713f12; }
-  .quick-chip-num { background: #0f766e; color: #fff; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 900; }
-
-  /* قائمة التشخيص */
-  .search-box { width: 100%; padding: 11px 12px; border: 2px solid var(--border); border-radius: 10px; font-size: 13.5px; font-weight: 700; margin-bottom: 8px; outline: none; }
-  .search-box:focus { border-color: var(--primary); }
-  .diag-list { max-height: 280px; overflow-y: auto; display: grid; grid-template-columns: 1fr; gap: 6px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
-  @media (min-width: 768px) { .diag-list { grid-template-columns: repeat(2, 1fr); } }
-  .diag-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fff; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; text-align: left; direction: ltr; font-size: 12.5px; font-weight: 700; color: #1e293b; }
-  .diag-item.selected { background: #fef9c3; border-color: #ca8a04; color: #713f12; }
-  .diag-num { background: #0f766e; color: #fff; min-width: 26px; height: 26px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; }
-  .diag-item.selected .diag-num { background: #ca8a04; }
-
-  .submit-bar { background: #fff; border: 2px solid var(--primary); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
-  .preview-pills { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; font-weight: 800; }
-  .pill { background: #e2e8f0; padding: 4px 10px; border-radius: 6px; color: #0f172a; }
-  .btn-save-case { width: 100%; padding: 14px; background: var(--primary); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 900; cursor: pointer; }
-  .btn-save-case.edit-active { background: #d97706; }
-
-  /* الترويسة والتذييل الرسمي للاستمارة (Official Header & Sign-off) */
-  .official-header-box {
-    border: 1.5px solid #0f172a; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px;
-    background: #f8fafc; direction: ltr;
-  }
-  .official-title-row {
-    display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #0f172a;
-    padding-bottom: 4px; margin-bottom: 5px;
-  }
-  .official-meta-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 10px; text-align: left;
-  }
-  .official-meta-item { background: #fff; border: 1px solid #cbd5e1; padding: 3px 6px; border-radius: 3px; }
-  .official-meta-label { font-weight: 900; color: #475569; font-size: 8.5px; text-transform: uppercase; display: block; }
-  .official-meta-val { font-weight: 900; color: #0f172a; font-size: 10px; }
-
-  .official-footer-box {
-    border: 1.5px solid #0f172a; border-radius: 4px; padding: 6px 10px; margin-top: 6px;
-    background: #f8fafc; direction: ltr; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-    font-size: 9.5px; text-align: left; page-break-inside: avoid; break-inside: avoid;
-  }
-  .sign-block { display: flex; flex-direction: column; gap: 3px; }
-  .sign-line { border-bottom: 1px dashed #334155; height: 14px; margin-top: 2px; }
-
-  /* الجداول الرسمية */
-  .table-scroll { overflow-x: auto; border: 1px solid #475569; border-radius: 6px; margin-bottom: 10px; background: #fff; direction: ltr; }
-  table.morbidity-table { width: 100%; border-collapse: collapse; font-size: 10px; direction: ltr; text-align: center; }
-  table.morbidity-table tr { page-break-inside: avoid; break-inside: avoid; }
-  table.morbidity-table th, table.morbidity-table td { border: 1px solid #1e293b; padding: 3px 4px; white-space: nowrap; color: #0f172a; }
-  table.morbidity-table th { font-weight: 800; background: #e2e8f0; }
-  .th-new { background: #bae6fd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .th-follow { background: #fed7aa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .th-total { background: #fde047 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .th-special { background: #e9d5ff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .cat-row td { background: #cbd5e1 !important; font-weight: 900; text-align: left !important; padding-left: 8px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .subcat-row td { background: #e2e8f0 !important; font-weight: 800; text-align: left !important; padding-left: 12px !important; font-style: italic; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .cell-nz { background: #dcfce7 !important; font-weight: 900; color: #14532d !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .diag-name-cell { text-align: left !important; padding-left: 5px !important; font-weight: 700; min-width: 165px; }
-
-  /* سجل الحالات السفلي */
-  .log-table { width: 100%; border-collapse: collapse; font-size: 12.5px; direction: rtl; text-align: center; }
-  .log-table th, .log-table td { border: 1px solid #cbd5e1; padding: 7px 6px; }
-  .log-table th { background: #f1f5f9; font-weight: 900; color: #0f172a; }
-  .log-table tr:nth-child(even) { background: #f8fafc; }
-
-  /* استوديو المعاينة وضبط الأحجام */
-  .studio-backdrop {
-    position: fixed; inset: 0; background: #0f172a; z-index: 3000;
-    display: flex; flex-direction: column; overflow: hidden;
-  }
-  .studio-header {
-    background: #1e293b; color: #fff; padding: 10px 14px; border-bottom: 1px solid #334155;
-    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;
-  }
-  .studio-controls {
-    background: #334155; color: #f8fafc; padding: 8px 14px; display: flex; flex-wrap: wrap;
-    gap: 12px; align-items: center; font-size: 12px; font-weight: 700; border-bottom: 1px solid #475569;
-  }
-  .control-item { display: flex; align-items: center; gap: 6px; background: rgba(15,23,42,0.45); padding: 4px 10px; border-radius: 8px; }
-  .control-item input[type="range"] { width: 85px; accent-color: #14b8a6; cursor: pointer; }
-  .control-item select { padding: 4px 6px; border-radius: 5px; border: none; font-weight: 800; font-size: 12px; }
-
-  .studio-viewport {
-    flex: 1; overflow: auto; background: #475569; padding: 16px;
-    display: flex; justify-content: center; align-items: flex-start;
-  }
-  .studio-paper-scaler { transform-origin: top center; transition: transform 0.15s ease; }
-  .studio-paper {
-    background: #ffffff; color: #0f172a; direction: ltr;
-    box-shadow: 0 12px 35px rgba(0,0,0,0.5);
-    padding: 8px 10px; width: 1100px;
-  }
-  .studio-paper .table-scroll { overflow: visible !important; border: none !important; margin-bottom: 5px !important; }
-  .studio-paper table.morbidity-table { width: 100% !important; font-size: var(--pdf-font-size) !important; table-layout: auto !important; }
-  .studio-paper table.morbidity-table th, .studio-paper table.morbidity-table td {
-    padding: var(--pdf-cell-pad-v) var(--pdf-cell-pad-h) !important; line-height: 1.05 !important;
-  }
-  .studio-paper .diag-name-cell { min-width: var(--pdf-diag-width) !important; max-width: var(--pdf-diag-width) !important; white-space: normal !important; }
-
-  /* منصة التصوير المعزولة للـ PDF داخل الـ APK لمنع أي قص أو صفحات فارغة */
-  #pdfRenderStage {
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: -9999;
-    background: #ffffff;
-    pointer-events: none;
-    opacity: 0;
-  }
-
-  /* النوافذ المنبثقة */
-  .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); z-index: 3500;
-    display: flex; align-items: center; justify-content: center; padding: 14px; overflow-y: auto;
-  }
-  .modal-card {
-    background: #fff; color: #0f172a; width: 100%; max-width: 580px; border-radius: 16px;
-    padding: 18px; box-shadow: 0 15px 40px rgba(0,0,0,0.45); max-height: 92vh; overflow-y: auto;
-  }
-  .form-group { margin-bottom: 10px; }
-  .form-group label { display: block; font-size: 12.5px; font-weight: 800; margin-bottom: 4px; color: #1e293b; }
-  .form-input { width: 100%; padding: 9px 12px; border: 2px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 700; outline: none; }
-  .form-input:focus { border-color: var(--primary); }
-
-  .backup-textarea {
-    width: 100%; height: 95px; padding: 8px; border: 2px solid #cbd5e1; border-radius: 8px;
-    font-family: monospace; font-size: 11px; direction: ltr; text-align: left; margin: 6px 0;
-  }
-
-  .Capture-Overlay {
-    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.92); color: #fff;
-    z-index: 9000; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    font-weight: 900; font-size: 16px; gap: 12px; text-align: center; padding: 20px;
-  }
-
-  @media print {
-    @page { size: A4 portrait; margin: 4mm; }
-    body { background: #fff !important; padding: 0 !important; margin: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .app-header, .tabs, #tab-entry, .no-print, .studio-header, .studio-controls, #backupModal, #facilityModal, #pdfRenderStage { display: none !important; }
-    .studio-backdrop { position: static !important; background: #fff !important; overflow: visible !important; display: block !important; }
-    .studio-viewport { background: #fff !important; padding: 0 !important; overflow: visible !important; display: block !important; }
-    .studio-paper-scaler { transform: none !important; }
-    .studio-paper { width: 100% !important; box-shadow: none !important; padding: 0 !important; zoom: 0.62; }
-  }
-
-  .toast {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: #0f172a; color: #fff; padding: 11px 20px; border-radius: 999px;
-    font-weight: 800; font-size: 13px; z-index: 9999; display: none; box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-    text-align: center; min-width: 240px;
-  }
-  .hidden { display: none !important; }
+:root{--p:#0f766e;--pl:#ccfbf1;--bd:#cbd5e1}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}
+body{margin:0;background:#f1f5f9;color:#0f172a;padding-bottom:60px}
+.hidden{display:none!important}
+.hd{background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;padding:10px 12px;position:sticky;top:0;z-index:100}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;max-width:1280px;margin:0 auto 6px}
+.sp{flex:1}
+h1{font-size:16px;margin:0}
+.bt{border:0;padding:8px 10px;border-radius:8px;font-weight:800;font-size:12px;color:#fff;cursor:pointer}
+.gn{background:#16a34a}.rd{background:#dc2626}.bl{background:#2563eb}.dk{background:#1e293b}.or{background:#d97706}.sk{background:#0284c7}
+.bd{background:#fef08a;color:#854d0e;padding:3px 10px;border-radius:999px;font-weight:900;font-size:12px}
+.in{padding:7px 9px;border:2px solid var(--bd);border-radius:8px;font-weight:700;font-size:13px;width:100%}
+.hd .in{width:auto;border:0}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:1280px;margin:10px auto 0;padding:0 10px}
+.tb{padding:10px 4px;border:2px solid var(--bd);background:#fff;color:#64748b;border-radius:10px;font-weight:900;font-size:12.5px;cursor:pointer}
+.tb.on{background:var(--p);color:#fff;border-color:var(--p)}
+.ct{max-width:1280px;margin:10px auto;padding:0 10px}
+.cd{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:10px}
+.cd h4{margin:0 0 8px;font-size:13.5px;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+.gr{display:grid;gap:6px;grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(2,1fr)}
+@media(min-width:640px){.g4{grid-template-columns:repeat(4,1fr)}.g5{grid-template-columns:repeat(5,1fr)}}
+.g5{grid-template-columns:repeat(2,1fr)}
+.cb{padding:11px 6px;border:2px solid var(--bd);border-radius:10px;background:#f8fafc;font-weight:800;font-size:13px;text-align:center;cursor:pointer;user-select:none}
+.cb.selected{background:var(--pl);border-color:var(--p);color:#115e59}
+.cb.F.selected{background:#fce7f3;border-color:#db2777;color:#9d174d}
+.cb.M.selected{background:#dbeafe;border-color:#2563eb;color:#1e40af}
+.pin{border:1.5px solid var(--bd);background:#f8fafc;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;cursor:pointer}
+.pin.on{background:#fef08a;border-color:#ca8a04;color:#854d0e}
+.qp{background:#f0fdfa;border:1px dashed #0d9488;border-radius:10px;padding:8px;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;direction:ltr}
+.chip,.di{display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #99f6e4;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:800;cursor:pointer;direction:ltr;text-align:left}
+.di{border:2px solid #e2e8f0;font-size:12.5px}
+.chip.selected,.di.selected{background:#fef9c3;border-color:#ca8a04;color:#713f12}
+.nm{background:#0f766e;color:#fff;min-width:24px;padding:2px 5px;border-radius:5px;font-size:11px;text-align:center}
+.dl{max-height:260px;overflow-y:auto;display:grid;gap:6px;padding:4px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}
+@media(min-width:768px){.dl{grid-template-columns:repeat(2,1fr)}}
+.sb{background:#fff;border:2px solid var(--p);border-radius:12px;padding:12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
+.pl{display:flex;flex-wrap:wrap;gap:5px;font-size:12px;font-weight:800}
+.pl span{background:#e2e8f0;padding:3px 9px;border-radius:6px}
+.sv{width:100%;padding:14px;background:var(--p);color:#fff;border:0;border-radius:10px;font-size:16px;font-weight:900;cursor:pointer}
+.sv.ed{background:#d97706}
+.eb{background:#fffbeb;border:2px solid #f59e0b;color:#92400e;padding:9px 12px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;font-weight:900;font-size:13px}
+.lt{width:100%;border-collapse:collapse;font-size:12px;text-align:center}
+.lt th,.lt td{border:1px solid var(--bd);padding:6px 4px}.lt th{background:#f1f5f9}
+.xg{display:grid;gap:6px;grid-template-columns:repeat(2,1fr)}.xg label{font-size:11.5px;font-weight:800;display:block;margin-bottom:2px}
+.mb{position:fixed;inset:0;background:rgba(15,23,42,.85);z-index:3500;display:flex;align-items:center;justify-content:center;padding:14px;overflow-y:auto}
+.mc{background:#fff;width:100%;max-width:560px;border-radius:16px;padding:16px;max-height:92vh;overflow-y:auto}
+.ov{position:fixed;inset:0;background:rgba(15,23,42,.96);color:#fff;z-index:9000;display:flex;align-items:center;justify-content:center;font-weight:900;text-align:center;padding:20px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 18px;border-radius:999px;font-weight:800;font-size:13px;z-index:9999;display:none;text-align:center;min-width:220px}
+#stage{position:fixed;top:0;left:0;z-index:8500;background:#fff;display:none;pointer-events:none;direction:ltr}
+#rep{background:#fff;padding:8px;border-radius:8px;direction:ltr;text-align:left}
+.ohb{border:1.5px solid #0f172a;border-radius:4px;padding:6px 10px;margin-bottom:6px;background:#f8fafc}
+.ohg{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;font-size:10px}
+.ohg div{background:#fff;border:1px solid var(--bd);padding:2px 5px}.ohg small{display:block;font-size:8.5px;color:#475569;font-weight:900}
+.ftb{border:1.5px solid #0f172a;border-radius:4px;padding:6px 10px;margin-top:6px;background:#f8fafc;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:9.5px;break-inside:avoid}
+.mt{width:100%;border-collapse:collapse;font-size:10px;text-align:center}
+.mt th,.mt td{border:1px solid #1e293b;padding:2px 3px;white-space:nowrap}.mt th{background:#e2e8f0}.mt tr{break-inside:avoid}
+.tn{background:#bae6fd!important}.tf{background:#fed7aa!important}.tt{background:#fde047!important}.ts{background:#e9d5ff!important}
+.cat td{background:#cbd5e1;font-weight:900;text-align:left}.sub td{background:#e2e8f0;font-weight:800;font-style:italic;text-align:left}
+.nz{background:#dcfce7;font-weight:900}.tl td{background:#fde047;font-weight:900}
+.dn{text-align:left!important;min-width:170px;white-space:normal!important}.cm{text-align:left!important;white-space:normal!important;min-width:120px}
+.ws{overflow-x:auto;border:1px solid #475569;margin-bottom:8px;background:#fff}
+.h3{font-size:10px;font-weight:900;margin:4px 0 2px}
+.pdfm .mt{font-size:7px}.pdfm .mt th,.pdfm .mt td{padding:1px 2px}.pdfm .ws{overflow:visible;border:0}.pdfm .dn{min-width:150px}
 </style>
 </head>
 <body>
-
 <div id="toast" class="toast"></div>
-<div id="pdfRenderStage"></div>
+<div id="stage"></div>
+<div id="ov" class="ov hidden">⚙️ جاري تجهيز الملف الرسمي...</div>
 
-<div id="captureOverlay" class="Capture-Overlay hidden">
-  <div style="font-size:36px;">⚙️</div>
-  <div id="captureStatusText">جاري تجهيز وتوليد الملف الرسمي بدقة عالية...</div>
-</div>
-
-<!-- =========================================================================
-     نافذة إعدادات الترويسة والتوقيع الرسمي للمنشأة
-     ========================================================================= -->
-<div id="facilityModal" class="modal-backdrop hidden">
-  <div class="modal-card">
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #e2e8f0; padding-bottom:10px; margin-bottom:12px;">
-      <h3 style="margin:0; font-size:16px; color:#0f766e;">🏥 إعدادات الترويسة والتذييل الرسمي للاستمارة</h3>
-      <button class="btn-action btn-pdf" onclick="closeFacilityModal()">✖ إغلاق</button>
-    </div>
-    <p style="font-size:12px; color:#475569; margin-top:0; font-weight:700;">
-      تُحفظ هذه البيانات تلقائياً وتظهر في أعلى وأسفل تقارير الـ PDF وملفات الـ Excel:
-    </p>
-    <div class="grid-2">
-      <div class="form-group">
-        <label>المحافظة (Governorate):</label>
-        <input type="text" id="facGov" class="form-input" placeholder="مثال: Sana'a / Hajjah...">
-      </div>
-      <div class="form-group">
-        <label>المديرية (District):</label>
-        <input type="text" id="facDist" class="form-input" placeholder="مثال: Abs / Al-Mahabishah...">
-      </div>
-    </div>
-    <div class="grid-2">
-      <div class="form-group">
-        <label>اسم المرفق الصحي / العيادة (Health Facility):</label>
-        <input type="text" id="facName" class="form-input" placeholder="مثال: Al-Salam Health Center">
-      </div>
-      <div class="form-group">
-        <label>الجهة / المنظمة (Organization / MoPHP):</label>
-        <input type="text" id="facOrg" class="form-input" placeholder="مثال: MoPHP / WHO / MSF...">
-      </div>
-    </div>
-    <div class="grid-2">
-      <div class="form-group">
-        <label>اسم مُعد التقرير (Prepared By - Name):</label>
-        <input type="text" id="facReporter" class="form-input" placeholder="اسم الطبيب أو الممرض المسؤول">
-      </div>
-      <div class="form-group">
-        <label>المسمى الوظيفي (Job Title):</label>
-        <input type="text" id="facTitle" class="form-input" placeholder="مثال: Medical Doctor / Nurse">
-      </div>
-    </div>
-    <button class="btn-action btn-excel" style="width:100%; padding:12px; font-size:14px; margin-top:6px;" onclick="saveFacilitySettings()">
-      ✅ حفظ بيانات الترويسة والتوقيع الرسمي
-    </button>
+<div id="facM" class="mb hidden"><div class="mc">
+  <h3 style="margin:0 0 10px;color:#0f766e">🏥 بيانات المرفق الصحي والتوقيع</h3>
+  <div class="xg" style="grid-template-columns:1fr">
+    <div><label>المرفق الصحي (من القائمة الرسمية)</label><select id="fHf" class="in" onchange="fillHf()"></select></div>
+    <div id="fInfo" style="font-size:12px;font-weight:800;color:#475569"></div>
+    <div><label>اسم مُعد التقرير (Collected by)</label><input id="fRep" class="in"></div>
+    <div><label>المسمى الوظيفي</label><input id="fTitle" class="in"></div>
+    <div><label>الجهة / المنظمة</label><input id="fOrg" class="in"></div>
   </div>
-</div>
+  <div class="row" style="margin:10px 0 0"><button class="bt gn sp" onclick="saveFac()">✅ حفظ</button><button class="bt rd" onclick="$('facM').classList.add('hidden')">إغلاق</button></div>
+</div></div>
 
-<!-- =========================================================================
-     استوديو المعاينة وضبط المقاسات قبل التصدير (PDF Print Studio)
-     ========================================================================= -->
-<div id="pdfStudioModal" class="studio-backdrop hidden">
-  <div class="studio-header">
-    <div style="display:flex; align-items:center; gap:8px;">
-      <span style="font-size:15px; font-weight:900;">📐 استوديو معاينة وضبط مقاسات الـ PDF الرسمي</span>
-    </div>
-    <div style="display:flex; gap:6px; flex-wrap:wrap;">
-      <button class="btn-action btn-facility" onclick="closePdfStudio(); openFacilityModal();">⚙️ الترويسة</button>
-      <button class="btn-action btn-excel" onclick="exportFinalPDF()">💾 حفظ / مشاركة PDF</button>
-      <button class="btn-action btn-share" onclick="triggerSmartPrint()">🖨️ طباعة مباشرة</button>
-      <button class="btn-action btn-pdf" onclick="closePdfStudio()">✖ إغلاق</button>
-    </div>
-  </div>
+<div id="bkM" class="mb hidden"><div class="mc">
+  <h3 style="margin:0 0 10px;color:#0f766e">💾 نسخ احتياطي / استعادة (<span id="bkN">0</span> حالة)</h3>
+  <div class="row" style="margin-bottom:10px"><button class="bt gn sp" onclick="bkExport()">📥 حفظ / مشاركة JSON</button><button class="bt bl sp" onclick="bkCopy()">📋 نسخ الكود</button></div>
+  <label style="font-size:12px;font-weight:800"><input type="radio" name="rm" value="merge" checked> دمج</label>
+  <label style="font-size:12px;font-weight:800;margin-inline-start:12px"><input type="radio" name="rm" value="replace"> استبدال الكل</label>
+  <button class="bt dk" style="width:100%;margin:8px 0;padding:10px" onclick="$('rf').click()">📂 اختيار ملف JSON</button>
+  <input type="file" id="rf" class="hidden" accept=".json,.txt" onchange="bkFile(event)">
+  <textarea id="bkT" class="in" style="height:90px;direction:ltr;font-family:monospace;font-size:11px" placeholder="أو الصق كود النسخة الاحتياطية هنا"></textarea>
+  <div class="row" style="margin:8px 0 0"><button class="bt gn sp" onclick="bkRestore($('bkT').value)">✅ استعادة من النص</button><button class="bt rd" onclick="$('bkM').classList.add('hidden')">إغلاق</button></div>
+</div></div>
 
-  <div class="studio-controls">
-    <div class="control-item">
-      <label>اتجاه الورقة:</label>
-      <select id="ctrlOrientation" onchange="applyStudioSettings()">
-        <option value="portrait">A4 عمودي (Portrait)</option>
-        <option value="landscape">A4 أفقي (Landscape)</option>
-      </select>
-    </div>
-    <div class="control-item">
-      <label>عرض القالب:</label>
-      <input type="range" id="ctrlPaperWidth" min="920" max="1550" step="10" value="1100" oninput="applyStudioSettings()">
-      <span id="lblPaperWidth">1100px</span>
-    </div>
-    <div class="control-item">
-      <label>حجم الخط:</label>
-      <input type="range" id="ctrlFontSize" min="5.5" max="10.5" step="0.2" value="7.3" oninput="applyStudioSettings()">
-      <span id="lblFontSize">7.3px</span>
-    </div>
-    <div class="control-item">
-      <label>ارتفاع الصف:</label>
-      <input type="range" id="ctrlCellPad" min="0.8" max="4.0" step="0.2" value="1.4" oninput="applyStudioSettings()">
-      <span id="lblCellPad">1.4px</span>
-    </div>
-    <div class="control-item">
-      <label>تقريب المعاينة (Zoom):</label>
-      <input type="range" id="ctrlPreviewZoom" min="0.25" max="1.0" step="0.05" value="0.35" oninput="applyStudioZoom()">
-      <span id="lblPreviewZoom">35%</span>
-    </div>
-    <button class="btn-action btn-backup" style="padding:5px 10px;" onclick="resetStudioDefaults()">🔄 الضبط القياسي لـ A4</button>
-  </div>
-
-  <div class="studio-viewport" id="studioViewport">
-    <div class="studio-paper-scaler" id="studioScaler">
-      <div class="studio-paper" id="studioPaper"></div>
-    </div>
-  </div>
-</div>
-
-<!-- =========================================================================
-     نافذة النسخ الاحتياطي والاستعادة الشاملة
-     ========================================================================= -->
-<div id="backupModal" class="modal-backdrop hidden">
-  <div class="modal-card">
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #e2e8f0; padding-bottom:10px; margin-bottom:12px;">
-      <h3 style="margin:0; font-size:16px; color:#0f766e;">💾 مركز الحفظ واستعادة البيانات الاحترافي</h3>
-      <button class="btn-action btn-pdf" onclick="closeBackupModal()">✖ إغلاق</button>
-    </div>
-
-    <div style="background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #cbd5e1; margin-bottom:12px;">
-      <div style="font-weight:900; font-size:13px; margin-bottom:8px; color:#0f172a;">
-        1. حفظ نسخة احتياطية من البيانات الحالية (<span id="modalTotalCases">0</span> حالة):
-      </div>
-      <div style="display:flex; gap:6px; flex-wrap:wrap;">
-        <button class="btn-action btn-excel" style="flex:1;" onclick="exportBackupFile()">📥 حفظ / مشاركة ملف (.json)</button>
-        <button class="btn-action btn-share" style="flex:1;" onclick="copyBackupToClipboard()">📋 نسخ الكود للحافظة</button>
-      </div>
-    </div>
-
-    <div style="background:#f0fdf4; padding:12px; border-radius:10px; border:1px solid #86efac;">
-      <div style="font-weight:900; font-size:13px; margin-bottom:8px; color:#14532d;">
-        2. استعادة بيانات سابقة (يدعم ملفات JSON أو ملفات Excel أو النص):
-      </div>
-      <div style="margin-bottom:10px; font-size:12px; font-weight:800; display:flex; gap:14px;">
-        <label style="cursor:pointer;"><input type="radio" name="restoreMode" value="merge" checked> دمج مع البيانات الحالية</label>
-        <label style="cursor:pointer;"><input type="radio" name="restoreMode" value="replace"> استبدال الكل</label>
-      </div>
-
-      <button class="btn-action btn-backup" style="width:100%; padding:11px; margin-bottom:8px; font-size:13px;" onclick="document.getElementById('restoreInput').click()">
-        📂 اختيار ملف من الهاتف (JSON / Excel .xlsx / TXT)
-      </button>
-      <input type="file" id="restoreInput" class="hidden" onchange="handleUniversalFileRestore(event)">
-
-      <div style="font-size:11.5px; font-weight:800; color:#334155; margin-top:6px;">أو الصق نص النسخة الاحتياطية هنا مباشرة:</div>
-      <textarea id="backupPasteArea" class="backup-textarea" placeholder='الصق كود JSON هنا ثم اضغط زر الاستعادة بالأسفل...'></textarea>
-      <button class="btn-action btn-excel" style="width:100%; padding:10px;" onclick="restoreFromPastedText()">
-        ✅ استعادة البيانات من النص الملصق
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- =========================================================================
-     الواجهة الرئيسية للتطبيق
-     ========================================================================= -->
-<header class="app-header">
-  <div class="header-top">
-    <h1 class="app-title">🏥 Daily Morbidity Tracker Pro</h1>
-    <div class="badges-wrap">
-      <span class="badge-total-db" id="totalDbBadge">إجمالي الذاكرة: 0</span>
-      <span class="badge-serial" id="nextSerialBadge">الحالة القادمة: #1</span>
-    </div>
-  </div>
-  <div class="controls-bar">
-    <label>📅 التاريخ:</label>
-    <input type="date" id="workDate" class="date-input" onchange="onDateChange()">
-    <span id="dayNameLabel" style="font-size:12px; font-weight:800; color:#fef08a;"></span>
-    <div style="flex:1"></div>
-    <button class="btn-action btn-facility" onclick="openFacilityModal()">⚙️ المنشأة</button>
-    <button class="btn-action btn-excel" onclick="exportExcelWorkbook()">📊 Excel</button>
-    <button class="btn-action btn-pdf" onclick="openPdfStudio()">📐 معاينة و PDF</button>
-    <button class="btn-action btn-backup" onclick="openBackupModal()">💾 نسخ / استعادة</button>
+<header class="hd">
+  <div class="row"><h1>🏥 Daily Morbidity Tracker Pro</h1><div class="sp"></div><span class="bd" id="bTot"></span><span class="bd" id="bNext"></span></div>
+  <div class="row" style="margin:0">
+    <span style="font-size:12px;font-weight:800">📅</span><input type="date" id="wd" class="in" onchange="refresh()"><b id="dn" style="font-size:12px;color:#fef08a"></b>
+    <div class="sp"></div>
+    <button class="bt sk" onclick="openFac()">⚙️ المرفق</button><button class="bt gn" onclick="exportXlsx()">📊 Excel</button><button class="bt rd" onclick="exportPdf()">📄 PDF</button><button class="bt dk" onclick="openBk()">💾 نسخ</button>
   </div>
 </header>
-
 <div class="tabs">
-  <button class="tab-btn active" id="tabBtnEntry" onclick="switchTab('entry')">⚡ الإدخال السريع + السجل (<span id="countLog">0</span>)</button>
-  <button class="tab-btn" id="tabBtnReport" onclick="switchTab('report')">📊 الاستمارة الرسمية (<span id="countReport">0</span>)</button>
+  <button class="tb on" id="b-entry" onclick="tab('entry')">⚡ الإدخال + السجل</button>
+  <button class="tb" id="b-extra" onclick="tab('extra')">📝 الإحالات والبيانات اليومية</button>
+  <button class="tb" id="b-rep" onclick="tab('rep')">📊 الاستمارة الرسمية</button>
 </div>
 
-<div class="container">
-  <!-- تبويب الإدخال السريع + السجل -->
-  <div id="tab-entry">
+<div class="ct">
+<div id="t-entry">
+  <div id="eb" class="eb hidden"><span id="ebT"></span><button class="bt dk" onclick="cancelEdit()">✖ إلغاء</button></div>
+  <div class="cd"><h4>1. الجنس (Gender)</h4><div id="cG" class="gr"></div></div>
+  <div class="cd"><h4>2. الفئة العمرية (Age Group)</h4><div id="cA" class="gr g3"></div></div>
+  <div class="cd"><h4>3. نوع الحالة <button class="pin" id="pT" onclick="pinTog('t')"></button></h4><div id="cT" class="gr"></div>
+    <div style="font-size:11.5px;font-weight:800;margin:8px 0 4px;color:#475569">مستفيد جديد للمشروع (New Beneficiary: أول زيارة له في المشروع)؟ — يُحتسب للحالات الجديدة فقط، والمتابعين يُحسبون تلقائياً</div>
+    <div id="cN" class="gr"></div></div>
+  <div class="cd"><h4>4. الفئة الخاصة <button class="pin" id="pS" onclick="pinTog('sg')"></button></h4><div id="cS" class="gr g4"></div></div>
+  <div class="cd"><h4>5. التشخيص (1 - 55) <span id="dBadge" style="color:var(--p);font-size:12px">لم يتم الاختيار</span></h4>
+    <div id="qp" class="qp"></div>
+    <input id="ds" class="in" style="margin-bottom:6px" placeholder="🔍 رقم التشخيص أو الاسم..." oninput="renderDiag()">
+    <div id="dl" class="dl"></div></div>
+  <div class="sb"><div class="pl" id="pv"></div><button id="sv" class="sv" onclick="saveCase()">✅ حفظ الحالة</button></div>
+  <div class="cd"><h4><span>📋 السجل</span><span class="row" style="margin:0">
+    <select class="in" style="width:auto" id="sc1" onchange="setScope(this.value)"></select>
+    <button class="bt rd" onclick="clearDay()">🗑️ مسح اليوم</button></span></h4>
+    <div style="overflow-x:auto"><table class="lt"><thead><tr><th>#</th><th>الوقت</th><th>التاريخ</th><th>الجنس</th><th>العمر</th><th>النوع</th><th>مستفيد جديد</th><th>الفئة</th><th>التشخيص</th><th>إجراء</th></tr></thead><tbody id="lg"></tbody></table></div></div>
+</div>
 
-    <div id="editModeBanner" class="edit-mode-banner hidden">
-      <span id="editModeText">✏️ وضع التعديل: جاري تعديل الحالة رقم #1</span>
-      <button class="btn-action btn-backup" style="padding:5px 10px;" onclick="cancelEditCase()">✖ إلغاء التعديل</button>
+<div id="t-extra" class="hidden">
+  <div class="cd"><h4>📤 الإحالات (Referrals) — تُسجَّل بالعمر والجنس وسبب الإحالة</h4>
+    <div class="xg">
+      <div><label>نوع الإحالة</label><select id="rT" class="in"></select></div>
+      <div><label>الجنس</label><select id="rG" class="in"><option value="F">Female</option><option value="M">Male</option></select></div>
+      <div><label>الفئة العمرية</label><select id="rA" class="in"></select></div>
+      <div><label>السبب / تفاصيل</label><input id="rC" class="in" placeholder="Cause of referral"></div>
     </div>
+    <button class="bt gn" style="width:100%;margin-top:8px;padding:11px" onclick="addRef()">➕ إضافة إحالة لهذا اليوم</button>
+    <div id="rl" style="margin-top:8px;font-size:12px;font-weight:700"></div></div>
+  <div class="cd"><h4>📝 بيانات اليوم الإضافية (لتاريخ: <span id="xd"></span>)</h4><div id="xf"></div></div>
+</div>
 
-    <div class="card">
-      <div class="section-title"><span>1. الجنس (Gender)</span></div>
-      <div class="grid-2">
-        <div class="choice-btn female" data-group="gender" data-val="Female" onclick="selectOption('gender','Female')">👩 Female (أنثى)</div>
-        <div class="choice-btn male" data-group="gender" data-val="Male" onclick="selectOption('gender','Male')">👨 Male (ذكر)</div>
+<div id="t-rep" class="hidden">
+  <div class="cd row" style="justify-content:space-between">
+    <span class="row" style="margin:0"><b>النطاق:</b><select class="in" style="width:auto" id="sc2" onchange="setScope(this.value)"></select></span>
+    <span class="row" style="margin:0"><button class="bt sk" onclick="openFac()">⚙️ المرفق والتوقيع</button><button class="bt gn" onclick="exportXlsx()">📊 Excel</button><button class="bt rd" onclick="exportPdf()">📄 PDF</button></span>
+  </div>
+  <div id="rep">
+    <div class="ohb">
+      <div style="display:flex;justify-content:space-between;border-bottom:1.5px solid #0f172a;padding-bottom:4px;margin-bottom:5px">
+        <div><div style="font-size:13px;font-weight:900">MORBIDITY-IMCI DAILY FORM — YEM-HOD-ECHO 23028</div><div id="rMeta" style="font-size:9.5px;font-weight:800;color:#0f766e"></div></div>
+        <div id="rOrg" style="font-size:11px;font-weight:900;background:#e2e8f0;padding:3px 10px;border-radius:4px;height:fit-content"></div>
       </div>
+      <div class="ohg"><div><small>Governorate</small><b id="hG"></b></div><div><small>District</small><b id="hD"></b></div><div><small>Health Facility</small><b id="hF"></b></div><div><small>Period</small><b id="hP"></b></div></div>
     </div>
-
-    <div class="card">
-      <div class="section-title"><span>2. الفئة العمرية (Age Group)</span></div>
-      <div class="grid-3">
-        <div class="choice-btn" data-group="ageGroup" data-val="0-6 months" onclick="selectOption('ageGroup','0-6 months')">0-6 months</div>
-        <div class="choice-btn" data-group="ageGroup" data-val="7-59 months" onclick="selectOption('ageGroup','7-59 months')">7-59 months</div>
-        <div class="choice-btn" data-group="ageGroup" data-val="5-14 years" onclick="selectOption('ageGroup','5-14 years')">5-14 years</div>
-        <div class="choice-btn" data-group="ageGroup" data-val="15-18 years" onclick="selectOption('ageGroup','15-18 years')">15-18 years</div>
-        <div class="choice-btn" data-group="ageGroup" data-val="19-49 years" onclick="selectOption('ageGroup','19-49 years')">19-49 years</div>
-        <div class="choice-btn" data-group="ageGroup" data-val=">= 50 years" onclick="selectOption('ageGroup','>= 50 years')">&ge; 50 years</div>
-      </div>
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <div style="flex:1.9;min-width:0"><div class="h3">1. Beneficiaries (NEW BENEFICIARIES — FOLLOW UP is auto = consultations − new)</div><div class="ws" id="wBen"></div></div>
+      <div style="flex:1.1;min-width:0"><div class="h3">2. Special Groups (0-18 Y &amp; ≥ 18 Y)</div><div class="ws" id="wSpec"></div></div>
     </div>
-
-    <div class="card">
-      <div class="section-title">
-        <span>3. نوع الحالة (Case Type)</span>
-        <button id="pinCaseTypeBtn" class="pin-btn" onclick="togglePin('caseType')">📌 تثبيت الخيار</button>
-      </div>
-      <div class="grid-2">
-        <div class="choice-btn selected" data-group="caseType" data-val="New" onclick="selectOption('caseType','New')">🆕 New Case (حالة جديدة)</div>
-        <div class="choice-btn" data-group="caseType" data-val="Follow up" onclick="selectOption('caseType','Follow up')">🔄 Follow up (متابعة)</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="section-title">
-        <span>4. الفئات الخاصة (Special Groups)</span>
-        <button id="pinSpecialGroupBtn" class="pin-btn" onclick="togglePin('specialGroup')">📌 تثبيت الفئة (مفيد للمخيمات)</button>
-      </div>
-      <div class="grid-4">
-        <div class="choice-btn selected" data-group="specialGroup" data-val="Non" onclick="selectOption('specialGroup','Non')">Non (عادي)</div>
-        <div class="choice-btn" data-group="specialGroup" data-val="IDPs" onclick="selectOption('specialGroup','IDPs')">⛺ IDPs (نازحين)</div>
-        <div class="choice-btn" data-group="specialGroup" data-val="Migrants" onclick="selectOption('specialGroup','Migrants')">🌍 Migrants (مهاجرين)</div>
-        <div class="choice-btn" data-group="specialGroup" data-val="Disability" onclick="selectOption('specialGroup','Disability')">♿ Disability (إعاقة)</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="section-title">
-        <span>5. التشخيص (Diagnosis 1 - 55)</span>
-        <span id="selectedDiagBadge" style="color:var(--primary); font-size:12px;">لم يتم الاختيار</span>
-      </div>
-
-      <div class="quick-picks-wrap">
-        <div class="quick-picks-title">
-          <span>⚡ الأكثر شيوعاً في عيادتك (اختيار سريع بلمسة واحدة):</span>
-        </div>
-        <div id="quickPicksContainer" class="quick-picks-grid"></div>
-      </div>
-
-      <input type="text" id="diagSearch" class="search-box" placeholder="🔍 أو ابحث برقم التشخيص (1-55) أو الاسم بالإنجليزية..." oninput="renderDiagList()">
-      <div id="diagListContainer" class="diag-list"></div>
-    </div>
-
-    <div class="submit-bar">
-      <div class="preview-pills" id="livePreviewPills"></div>
-      <button id="mainSaveBtn" class="btn-save-case" onclick="saveCase()">✅ حفظ الحالة وإضافتها للسجل التسلسلي بالأسفل</button>
-    </div>
-
-    <!-- السجل التسلسلي المباشر أسفل الإدخال -->
-    <div class="card">
-      <div class="section-title">
-        <span>📋 سجل الحالات المدخلة (مع إمكانية التعديل الفوري ✏️)</span>
-        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-          <select id="logScopeSelect" onchange="onScopeChange(this.value)" style="padding:5px 8px; border-radius:6px; font-weight:800; font-size:12px;">
-            <option value="day">عرض حالات اليوم المحدد</option>
-            <option value="all">عرض جميع الأيام المحفوظة</option>
-          </select>
-          <button class="btn-action btn-pdf" onclick="clearCurrentDayCases()">🗑️ مسح حالات اليوم</button>
-        </div>
-      </div>
-      <div style="overflow-x:auto;">
-        <table class="log-table">
-          <thead>
-            <tr>
-              <th># التسلسل</th>
-              <th>الوقت</th>
-              <th>التاريخ</th>
-              <th>الجنس</th>
-              <th>الفئة العمرية</th>
-              <th>النوع</th>
-              <th>الفئة الخاصة</th>
-              <th>التشخيص</th>
-              <th>إجراء (تعديل / حذف)</th>
-            </tr>
-          </thead>
-          <tbody id="dailyLogTbody"></tbody>
-        </table>
-      </div>
+    <div class="h3">3. Daily Morbidity (Diagnoses 1 - 55)</div><div class="ws" id="wMat"></div>
+    <div class="h3">4. Referrals</div><div class="ws" id="wRef"></div>
+    <div class="h3">5. IMCI, Triage &amp; Other indicators</div><div class="ws" id="wOth"></div>
+    <div class="ftb">
+      <div><b>Collected By:</b><div>Name: <b id="fR"></b></div><div>Title: <b id="fT"></b></div></div>
+      <div><b>Signature &amp; Stamp:</b><div style="border-bottom:1px dashed #334155;height:16px"></div><small>Authorized Health Worker</small></div>
+      <div><b>Export Info:</b><div>Total cases: <b id="fN">0</b> (<span id="fS"></span>)</div><div>Generated: <span id="fD"></span></div></div>
     </div>
   </div>
-
-  <!-- تبويب الاستمارة الرسمية المطبوعة -->
-  <div id="tab-report" class="hidden">
-    <div class="card no-print" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
-      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-        <strong>نطاق جدول النتائج:</strong>
-        <select id="reportScope" onchange="onScopeChange(this.value)" style="padding:6px 10px; border-radius:6px; font-weight:800;">
-          <option value="day">اليوم المحدد فقط</option>
-          <option value="all">جميع الأيام المحفوظة (تراكمي)</option>
-        </select>
-      </div>
-      <div style="display:flex; gap:6px; flex-wrap:wrap;">
-        <button class="btn-action btn-facility" onclick="openFacilityModal()">⚙️ إعدادات الترويسة والتوقيع</button>
-        <button class="btn-action btn-excel" onclick="exportExcelWorkbook()">📊 تصدير Excel</button>
-        <button class="btn-action btn-pdf" onclick="openPdfStudio()">📐 فتح استوديو المعاينة وتصدير PDF</button>
-      </div>
-    </div>
-
-    <div id="printableReportArea" style="background:#fff; padding:10px; border-radius:8px; direction:ltr;">
-      <!-- الترويسة الرسمية للمنشأة الصحية -->
-      <div class="official-header-box">
-        <div class="official-title-row">
-          <div style="text-align:left;">
-            <div style="font-size:13px; font-weight:900; color:#0f172a;">DAILY MORBIDITY RECORDING & REPORTING FORM</div>
-            <div id="reportHeaderMeta" style="font-size:9.5px; font-weight:800; color:#0f766e;"></div>
-          </div>
-          <div id="hdrOrgBadge" style="font-size:11px; font-weight:900; color:#1e293b; background:#e2e8f0; padding:3px 10px; border-radius:4px;">MoPHP / Health Cluster</div>
-        </div>
-        <div class="official-meta-grid">
-          <div class="official-meta-item">
-            <span class="official-meta-label">Governorate (المحافظة)</span>
-            <span class="official-meta-val" id="hdrGov">—</span>
-          </div>
-          <div class="official-meta-item">
-            <span class="official-meta-label">District (المديرية)</span>
-            <span class="official-meta-val" id="hdrDist">—</span>
-          </div>
-          <div class="official-meta-item">
-            <span class="official-meta-label">Health Facility / Clinic (المرفق الصحي)</span>
-            <span class="official-meta-val" id="hdrFacility">—</span>
-          </div>
-          <div class="official-meta-item">
-            <span class="official-meta-label">Reporting Date / Scope (الفترة)</span>
-            <span class="official-meta-val" id="hdrDateScope">—</span>
-          </div>
-        </div>
-      </div>
-
-      <div style="display:flex; flex-wrap:nowrap; gap:8px; align-items:flex-start; justify-content:space-between; margin-bottom:6px;">
-        <div style="flex:1.9; min-width:0;">
-          <h3 style="font-size:9.5px; margin:2px 0; text-align:left; color:#0f172a;">1. Beneficiaries Summary (NEW BENEFICIARIES & FOLLOW UP)</h3>
-          <div class="table-scroll" id="beneficiariesTableWrap" style="margin-bottom:0;"></div>
-        </div>
-        <div style="flex:1.1; min-width:0;">
-          <h3 style="font-size:9.5px; margin:2px 0; text-align:left; color:#0f172a;">2. Special Groups (0-18 Y & &ge;18 Y)</h3>
-          <div class="table-scroll" id="specialGroupsTableWrap" style="margin-bottom:0;"></div>
-        </div>
-      </div>
-
-      <h3 style="font-size:9.5px; margin:4px 0 2px; text-align:left; color:#0f172a;">3. Daily Morbidity Matrix (Diagnoses 1 - 55)</h3>
-      <div class="table-scroll" id="morbidityMatrixWrap" style="margin-bottom:0;"></div>
-
-      <!-- التذييل الرسمي والتوقيع -->
-      <div class="official-footer-box">
-        <div class="sign-block">
-          <strong>Prepared By (مُعد التقرير):</strong>
-          <div>Name: <span id="ftrReporter" style="font-weight:900;">____________________</span></div>
-          <div>Title: <span id="ftrTitle" style="font-weight:800;">____________________</span></div>
-        </div>
-        <div class="sign-block">
-          <strong>Official Signature & Stamp (التوقيع والختم):</strong>
-          <div class="sign-line"></div>
-          <div style="font-size:8px; color:#64748b;">Authorized Health Worker / Team Leader</div>
-        </div>
-        <div class="sign-block">
-          <strong>Verification & Export Info (بيانات الاستخراج):</strong>
-          <div>Total Recorded Cases: <strong id="ftrTotalCases">0</strong> (<span id="ftrGenderSplit">F: 0 | M: 0</span>)</div>
-          <div>Generated On: <span id="ftrTimestamp" style="font-weight:800;"></span></div>
-        </div>
-      </div>
-    </div>
-  </div>
+</div>
 </div>
 
 <script>
-const AGE_GROUPS = ['0-6 months', '7-59 months', '5-14 years', '15-18 years', '19-49 years', '>= 50 years'];
-const AGE_LABELS_SHORT = ['0-6 M', '7-59 M', '5Y-14Y', '15Y-18Y', '19Y-49Y', '≥ 50Y'];
-const UNDER_18_AGES = ['0-6 months', '7-59 months', '5-14 years', '15-18 years'];
-const OVER_18_AGES = ['19-49 years', '>= 50 years'];
-const SPECIAL_GROUPS = ['IDPs', 'Migrants', 'Disability', 'Non'];
+const $=i=>document.getElementById(i),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const AG=['0-6 months','7-59 months','5-14 years','15-18 years','19-49 years','>= 50 years'];
+const AL=['0-6 M','7-59 M','5Y-14Y','15Y-18Y','19Y-49Y','≥ 50Y'];
+const DN=`Upper Respiratory Tract Infection|Lower Respiratory Tract Infection|Influenza Like Illness (ILI)|Severe Acute Respiratory Infections (SARI)|Suspected COVID-19|Suspected Pertussis|Suspected Diphtheria|Acute Watery Diarrhea / Cholera Suspicion|Other, Acute Diarrhea|Bloody Diarrhea|Acute Flaccid Paralysis|Measles Suspicion|Suspected Viral Hepatitis A & E|Tetanus Neonatorum|Suspected Mumps|Suspected Malaria|Dengue Fever|Acute Haemorrhagic Fever|Typhoid & Paratyphoid Fever|Brucellosis|Meningitis Suspicion|Tuberculosis Suspicion|Cutaneous Leishmaniasis|Schistosomiasis|Suspected Rabies|Chicken Pox - Varicella Zoster|Pediculosis/Scabies|HIV/AIDS|Guinea Worm|Skin Infection Other Than Scabies|Eye Infection|Intestinal Worms|Urinary Tract Infections|Other Infectious Diseases|Anemia|Skin Diseases Other Than Infectious|Eye Diseases Other Than Infectious|Dental Condition|Gastritis/Peptic Ulcer Conditions|Renal Diseases Other Than Infectious|Heart Disease|Hypertension|Diabetes Mellitus|Asthma|Chronic Obstructive Pulmonary Disease|Musculoskeletal Disease|Other Non-Infectious Diseases|Pregnancy-Related Disorders|Gynecological Conditions|Wounds/Injuries|Burns|Animal Bite|Suspected Mental Health Conditions|Malnutrition|Others`.split('|');
+// القائمة الرسمية للمرافق (list sheet): [المحافظة, المديرية, المرفق, الطبيب]
+const HF=[['AlHudaydah','Al Mighlaf','Al Mighlaf HC','D/Fathi'],['AlHudaydah','Al Qanawis','Al Qanawis HC','D/Abduljalil Alwesabi'],['AlHudaydah','Al Mansuriyah','Al Mansuriyah HC','D/Mohammed Abdu'],['As Sukhnah','As Sukhnah','Al Madman HC','D/Basheer Alsulwi'],['As Sukhnah','As Sukhnah','Shujinah HC','D/Zaid AlHawery'],['AlHudaydah','Al Qanawis','Al Dawoodia HU','D/Muhanad Abdulkabeer'],['Raymah',"Bilad At Ta'am",'24 May HC','Dr. Sumaya'],['Hajjah','Kushar','Bani Nader HU','D/suliman'],['Hajjah','Kushar','Ahem HC','D/Abdulkareem'],['Hajjah','Kushar','Al Kharab HU','D/Namat Alzabidi'],['Hajjah','Kushar','Bani Omar HC','D/Abdullah Ham'],['Hajjah','Abs','AlRadha HC','Dr. Sumaya'],['Hajjah','Abs','Bani Balosh HU','D/Amer'],['Hajjah','Abs',"Rabou'o Matwala HU",'D/Adel Haj'],['Hajjah','Abs','Al Jaberi HU','D/suliman'],['Hajjah','Abs','Mother and child Center','D/Namat Alzabidi'],['Hajjah','Abs','Almaqayit HU','D/Kholood'],['Hajjah','Abs','Al Hayjah HU','D/Kholood'],['','','Dir Al Kuraiti HC','']];
+const RT=['Emergency referrals to the hospital','Total cases referred to SC','Total cases referred to CTC','Total Suspected COVID-19 Cases','Total pregnancy cases referred to the hospital','Total delivery cases referred to the hospital','Total Mental Health referrals to private clinics','Other Referrals'];
+const SEC=[['A','Communicable Diseases',1,34],['a','Notifiable Diseases',1,29],['b','Other Infectious / Communicable Diseases',30,34],['B','Non-Communicable Diseases',35,47],['C','Reproductive Health',48,49],['D','Trauma-Related Injuries',50,52],['E','Others',53,55]];
+const XF=[['tri','Total cases triaged at HC entry (الفرز عند الدخول)',['Female','Male']],['va','Patients receiving Vitamin A (فيتامين أ)',['0-6 m F','0-6 m M','6-59 m F','6-59 m M']],['eld','Elderly consultations > 65 Y (كبار السن)',['Female','Male']],['gho','GHO trained (on-job coaching)',['Female','Male']],['dr','Restricted-use drugs — women treated',['Nifedipine 10mg','Methyldopa 250mg','Misoprostol 200mcg','Hydralazine 20mg','MgSO4 0.5g/ml']]];
+const HINT={14:'⚠️ Tetanus neonatorum: الفئة 0-6 أشهر فقط',48:'⚠️ إناث 5 سنوات فصاعداً فقط',49:'⚠️ إناث 5 سنوات فصاعداً فقط',54:'⚠️ Malnutrition: 0-59 شهراً للجنسين + إناث حتى 49 سنة'};
+const DAYS=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'],MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const KEY='MORB_V5',LEG=['MORBIDITY_RECORDS_V4','MORBIDITY_APP','MORBIDITY_DB_V5','MORBIDITY_RECORDS_V3','morbidity_cases'];
+let S={cases:[],refs:[],extras:{},fac:{hf:-1,rep:'',title:'Medical Doctor',org:'MoPHP / Health Cluster'},pins:{t:false,sg:false}};
+let cur={g:'',a:-1,t:'New',sg:'Non',nb:'Yes',d:0},edit=null,scope='day';
 
-const DIAGNOSES = [
-  { id: 1, name: "Upper Respiratory Tract Infection" }, { id: 2, name: "Lower Respiratory Tract Infection" },
-  { id: 3, name: "Influenza Like Illness (ILI)" }, { id: 4, name: "Severe Acute Respiratory Infections (SARI)" },
-  { id: 5, name: "Suspected COVID-19" }, { id: 6, name: "Suspected Pertussis" }, { id: 7, name: "Suspected Diphtheria" },
-  { id: 8, name: "Acute Watery Diarrhea / Cholera Suspicion" }, { id: 9, name: "Other, Acute Diarrhea" },
-  { id: 10, name: "Bloody Diarrhea" }, { id: 11, name: "Acute Flaccid Paralysis" }, { id: 12, name: "Measles Suspicion" },
-  { id: 13, name: "Suspected Viral Hepatitis A & E" }, { id: 14, name: "Tetanus Neonatorum" },
-  { id: 15, name: "Suspected Mumps" }, { id: 16, name: "Suspected Malaria" }, { id: 17, name: "Dengue Fever" },
-  { id: 18, name: "Acute Haemorrhagic Fever" }, { id: 19, name: "Typhoid & Paratyphoid Fever" },
-  { id: 20, name: "Brucellosis" }, { id: 21, name: "Meningitis Suspicion" }, { id: 22, name: "Tuberculosis Suspicion" },
-  { id: 23, name: "Cutaneous Leishmaniasis" }, { id: 24, name: "Schistosomiasis" }, { id: 25, name: "Suspected Rabies" },
-  { id: 26, name: "Chicken Pox – Varicella Zoster" }, { id: 27, name: "Pediculosis/Scabies" },
-  { id: 28, name: "HIV/AIDS" }, { id: 29, name: "Guinea Worm" }, { id: 30, name: "Skin Infection Other Than Scabies" },
-  { id: 31, name: "Eye Infection" }, { id: 32, name: "Intestinal Worms" }, { id: 33, name: "Urinary Tract Infections" },
-  { id: 34, name: "Other Infectious Diseases" }, { id: 35, name: "Anemia" },
-  { id: 36, name: "Skin Diseases Other Than Infectious" }, { id: 37, name: "Eye Diseases Other Than Infectious" },
-  { id: 38, name: "Dental Condition" }, { id: 39, name: "Gastritis/Peptic Ulcer Conditions" },
-  { id: 40, name: "Renal Diseases Other Than Infectious" }, { id: 41, name: "Heart Disease" },
-  { id: 42, name: "Hypertension" }, { id: 43, name: "Diabetes Mellitus" }, { id: 44, name: "Asthma" },
-  { id: 45, name: "Chronic Obstructive Pulmonary Disease" }, { id: 46, name: "Musculoskeletal Disease" },
-  { id: 47, name: "Other Non-Infectious Diseases" }, { id: 48, name: "Pregnancy-Related Disorders" },
-  { id: 49, name: "Gynecological Conditions" }, { id: 50, name: "Wounds/Injuries" }, { id: 51, name: "Burns" },
-  { id: 52, name: "Animal Bite" }, { id: 53, name: "Suspected Mental Health Conditions" },
-  { id: 54, name: "Malnutrition" }, { id: 55, name: "Others" }
-];
+const iso=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+const today=()=>iso(new Date()),dayName=d=>DAYS[new Date(d+'T00:00:00').getDay()]||'';
+const toast=m=>{const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(window._t);window._t=setTimeout(()=>t.style.display='none',3200)};
+const sum=a=>a.reduce((s,v)=>s+v,0),Z=()=>Array(24).fill(0),uid=()=>Date.now()+'_'+Math.random().toString(36).slice(2,7);
+// قواعد القفل الرسمية في الاستمارة (الخلايا المقفلة)
+const allowed=(d,a,g)=>d==14?a==0:(d==48||d==49)?(g==0&&a>=2):d==54?(a<=1||(g==0&&a<=4)):true;
+const refOk=(t,g,a)=>t==1?a<=1:(t==4||t==5)?(g==0&&a>=2&&a<=4):true;
 
-const DEFAULT_TOP_DIAGS = [1, 2, 9, 33, 35, 39];
-const STORAGE_KEY = 'MORBIDITY_RECORDS_V4';
-const FACILITY_KEY = 'MORBIDITY_FACILITY_V1';
-const PINS_KEY = 'MORBIDITY_PINS_V1';
-const LEGACY_KEYS = ['MORBIDITY_APP', 'MORBIDITY_DB_V5', 'MORBIDITY_RECORDS_V3', 'morbidity_cases'];
+function norm(r,i){
+  const d=+(r.d??r.diagId??r.id)||0;if(d<1||d>55)return null;
+  let a=r.a;if(typeof a!=='number'){const s=String(r.ageGroup??a??'');a=s.includes('0-6')?0:s.includes('7-59')?1:(s.includes('5-14')||s.includes('5Y'))?2:s.includes('15-18')?3:s.includes('19-49')?4:s.includes('50')?5:2}
+  const gs=String(r.g??r.gender??'F').toLowerCase(),g=(gs==='m'||gs==='male'||gs==='ذكر')?'M':'F';
+  const t=/follow|متابع/i.test(String(r.t??r.caseType??''))?'Follow up':'New';
+  const sp=String(r.sg??r.specialGroup??'Non').toLowerCase(),sg=sp.includes('idp')?'IDPs':sp.includes('mig')?'Migrants':sp.includes('dis')?'Disability':'Non';
+  const dt=String(r.date||'').slice(0,10);
+  return{u:String(r.u||r.uid||uid()+i).replace(/[^\w-]/g,''),date:/^\d{4}-\d\d-\d\d$/.test(dt)?dt:today(),time:String(r.time||'08:00').slice(0,5),g,a,t,sg,d,nb:t==='New'&&(r.nb??true)}
+}
+function load(){
+  let raw=null;try{raw=localStorage.getItem(KEY)||sessionStorage.getItem(KEY)}catch(e){}
+  if(raw){try{const o=JSON.parse(raw);S={...S,...o,fac:{...S.fac,...o.fac},pins:{...S.pins,...o.pins}};return}catch(e){}}
+  let best=[];LEG.forEach(k=>{try{const a=JSON.parse(localStorage.getItem(k));if(Array.isArray(a)&&a.length>best.length)best=a}catch(e){}});
+  S.cases=best.map(norm).filter(Boolean);
+}
+const save=()=>{const j=JSON.stringify(S);try{localStorage.setItem(KEY,j)}catch(e){}try{sessionStorage.setItem(KEY,j)}catch(e){}};
 
-let allCases = [];
-let currentForm = { gender: '', ageGroup: '', caseType: 'New', specialGroup: 'Non', diagId: null };
-let pinnedState = { caseType: false, specialGroup: false };
-let editingUid = null;
-let isCordovaReady = false;
+// النطاق: يوم / أسبوع (سبت-خميس) / شهر / الكل
+function rng(){
+  const d=$('wd').value;if(scope==='all')return['0000','9999'];
+  if(scope==='month')return[d.slice(0,7)+'-01',d.slice(0,7)+'-31'];
+  if(scope==='week'){const x=new Date(d+'T00:00:00'),s=new Date(x);s.setDate(x.getDate()-((x.getDay()+1)%7));const e=new Date(s);e.setDate(s.getDate()+6);return[iso(s),iso(e)]}
+  return[d,d]
+}
+const inR=(d,r)=>d>=r[0]&&d<=r[1],getCases=()=>{const r=rng();return S.cases.filter(c=>inR(c.date,r))};
+const getRefs=()=>{const r=rng();return S.refs.filter(c=>inR(c.date,r))};
+const X=(k,i)=>{const r=rng();return Object.keys(S.extras).filter(d=>inR(d,r)).reduce((s,d)=>s+(+((S.extras[d][k]||[])[i])||0),0)};
+function setScope(v){scope=v;$('sc1').value=v;$('sc2').value=v;refresh()}
+function tab(t){['entry','extra','rep'].forEach(x=>{$('t-'+x).classList.toggle('hidden',x!==t);$('b-'+x).classList.toggle('on',x===t)});refresh()}
 
-let facilityProfile = {
-  gov: '',
-  dist: '',
-  name: '',
-  org: 'MoPHP / Health Cluster',
-  reporter: '',
-  title: 'Medical Doctor'
-};
+// ===== الإدخال =====
+function chips(id,g,arr){$(id).innerHTML=arr.map(([v,l,c])=>`<div class="cb ${c||''}" data-g="${g}" data-v="${v}" onclick="pick('${g}','${v}')">${l}</div>`).join('')}
+function sync(){
+  document.querySelectorAll('.cb').forEach(b=>b.classList.toggle('selected',String(cur[b.dataset.g])===b.dataset.v));
+  $('pT').className='pin'+(S.pins.t?' on':'');$('pT').textContent=S.pins.t?'📌 مُثبّت':'📌 تثبيت';
+  $('pS').className='pin'+(S.pins.sg?' on':'');$('pS').textContent=S.pins.sg?'📌 مُثبّتة':'📌 تثبيت (للمخيمات)';
+  const d=cur.d;$('dBadge').textContent=d?`#${d} ${DN[d-1]}`:'لم يتم الاختيار';
+  $('pv').innerHTML=[`الجنس: ${cur.g||'—'}`,`العمر: ${cur.a<0?'—':AL[cur.a]}`,`النوع: ${cur.t}`,`مستفيد جديد: ${cur.t==='New'?cur.nb:'—'}`,`الفئة: ${cur.sg}`,`التشخيص: ${d?'#'+d:'—'}`].map(x=>`<span>${x}</span>`).join('');
+}
+function pick(g,v){
+  cur[g]=g==='a'?+v:v;
+  if(g==='t')cur.nb=v==='New'?'Yes':'No';
+  sync()
+}
+function pickDiag(id){
+  cur.d=id;if(id==48||id==49)cur.g='F';if(id==14)cur.a=0;
+  if(HINT[id])toast(HINT[id]);
+  sync();renderDiag();renderQuick()
+}
+function renderDiag(){
+  const q=($('ds').value||'').trim().toLowerCase();
+  $('dl').innerHTML=DN.map((n,i)=>[i+1,n]).filter(([id,n])=>!q||String(id).startsWith(q)||n.toLowerCase().includes(q)).map(([id,n])=>`<div class="di ${cur.d===id?'selected':''}" onclick="pickDiag(${id})"><span class="nm">${id}</span><span>${n}</span></div>`).join('')
+}
+function renderQuick(){
+  const c={};S.cases.forEach(x=>c[x.d]=(c[x.d]||0)+1);
+  let top=Object.keys(c).map(Number).sort((a,b)=>c[b]-c[a]).slice(0,6);
+  [1,2,9,33,35,39].forEach(i=>{if(top.length<6&&!top.includes(i))top.push(i)});
+  $('qp').innerHTML=top.map(id=>`<div class="chip ${cur.d===id?'selected':''}" onclick="pickDiag(${id})"><span class="nm">#${id}</span>${DN[id-1]}${c[id]?` <small>(${c[id]})</small>`:''}</div>`).join('')
+}
+function pinTog(f){S.pins[f]=!S.pins[f];save();sync()}
+function resetForm(){cur.g='';cur.a=-1;cur.d=0;cur.nb=(S.pins.t?cur.t:'New')==='New'?'Yes':'No';if(!S.pins.t)cur.t='New';if(!S.pins.sg)cur.sg='Non';$('ds').value='';sync();renderDiag();renderQuick()}
+function saveCase(){
+  if(!cur.g)return toast('⚠️ اختر الجنس');if(cur.a<0)return toast('⚠️ اختر الفئة العمرية');if(!cur.d)return toast('⚠️ اختر التشخيص');
+  if(!allowed(cur.d,cur.a,cur.g==='F'?0:1))return toast('⛔ هذه الخانة مقفلة في الاستمارة الرسمية لهذا التشخيص');
+  const date=$('wd').value,rec={date,g:cur.g,a:cur.a,t:cur.t,sg:cur.sg,d:cur.d,nb:cur.t==='New'&&cur.nb==='Yes'};
+  if(edit){Object.assign(S.cases.find(c=>c.u===edit),rec);edit=null;$('eb').classList.add('hidden');$('sv').textContent='✅ حفظ الحالة';$('sv').classList.remove('ed');toast('✅ تم تحديث الحالة')}
+  else{S.cases.push({u:uid(),time:new Date().toTimeString().slice(0,5),...rec});toast('✅ تم حفظ الحالة')}
+  save();resetForm();refresh()
+}
+function startEdit(u){
+  const c=S.cases.find(x=>x.u===u);if(!c)return;edit=u;$('wd').value=c.date;
+  cur={g:c.g,a:c.a,t:c.t,sg:c.sg,d:c.d,nb:c.nb?'Yes':'No'};sync();renderDiag();renderQuick();
+  $('eb').classList.remove('hidden');$('ebT').textContent='✏️ وضع التعديل ('+c.date+')';$('sv').textContent='💾 حفظ التعديلات';$('sv').classList.add('ed');refresh();scrollTo({top:0,behavior:'smooth'})
+}
+function cancelEdit(){edit=null;$('eb').classList.add('hidden');$('sv').textContent='✅ حفظ الحالة';$('sv').classList.remove('ed');resetForm()}
+function delCase(u){if(edit===u)cancelEdit();S.cases=S.cases.filter(c=>c.u!==u);save();refresh();renderQuick();toast('🗑️ تم الحذف')}
+function togG(u){const c=S.cases.find(x=>x.u===u);if(!c)return;if(!allowed(c.d,c.a,c.g==='F'?1:0))return toast('⛔ غير مسموح لهذا التشخيص');c.g=c.g==='F'?'M':'F';save();refresh()}
+function clearDay(){const d=$('wd').value;if(!confirm('مسح كل حالات '+d+'؟'))return;S.cases=S.cases.filter(c=>c.date!==d);save();refresh();renderQuick()}
+function serials(){const n={},m={};S.cases.forEach(c=>{n[c.date]=(n[c.date]||0)+1;m[c.u]=n[c.date]});return m}
 
-document.addEventListener('deviceready', () => {
-  isCordovaReady = true;
-}, false);
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.display = 'block';
-  clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3200);
+// ===== الإحالات والبيانات الإضافية =====
+function addRef(){
+  const t=+$('rT').value,g=$('rG').value,a=+$('rA').value;
+  if(!refOk(t,g==='F'?0:1,a))return toast('⛔ هذه الخانة مقفلة في الاستمارة لهذا النوع من الإحالات');
+  S.refs.push({u:uid(),date:$('wd').value,t,g,a,cm:$('rC').value.trim()});$('rC').value='';save();refresh();toast('✅ تمت إضافة الإحالة')
+}
+function delRef(u){S.refs=S.refs.filter(r=>r.u!==u);save();refresh()}
+function setX(el){const d=$('wd').value,e=S.extras[d]=S.extras[d]||{},a=e[el.dataset.k]=e[el.dataset.k]||[];a[+el.dataset.i]=Math.max(0,+el.value||0);save()}
+function renderExtras(){
+  const d=$('wd').value,e=S.extras[d]||{};$('xd').textContent=d;
+  $('xf').innerHTML=XF.map(([k,t,ls])=>`<div style="margin-bottom:10px"><b style="font-size:12.5px">${t}</b><div class="xg g5" style="margin-top:4px">${ls.map((l,i)=>`<div><label>${l}</label><input type="number" min="0" class="in" data-k="${k}" data-i="${i}" value="${(e[k]||[])[i]||''}" onchange="setX(this)"></div>`).join('')}</div></div>`).join('');
+  $('rl').innerHTML=S.refs.filter(r=>r.date===d).map(r=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding:4px 0"><span>${RT[r.t]} — ${r.g} / ${AL[r.a]} ${r.cm?'/ '+r.cm:''}</span><button class="bt rd" onclick="delRef('${r.u}')">🗑️</button></div>`).join('')||'<span style="color:#64748b">لا توجد إحالات لهذا اليوم</span>'
 }
 
-function getArabicDayName(dateStr) {
-  const days = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-  const d = new Date(dateStr + 'T00:00:00');
-  return isNaN(d) ? '' : days[d.getDay()];
+// ===== السجل =====
+function renderLog(){
+  const cs=getCases().slice().reverse(),sr=serials();
+  $('lg').innerHTML=cs.map(c=>`<tr style="${edit===c.u?'background:#fef3c7':''}"><td><span class="bd">#${sr[c.u]}</span></td><td>${c.time}</td><td>${c.date}</td>
+  <td><span onclick="togG('${c.u}')" style="cursor:pointer;padding:2px 8px;border-radius:6px;font-weight:900;${c.g==='F'?'background:#fce7f3;color:#9d174d':'background:#dbeafe;color:#1e40af'}">${c.g==='F'?'👩 F':'👨 M'}</span></td>
+  <td dir="ltr"><b>${AL[c.a]}</b></td><td>${c.t}</td><td>${c.nb?'✔':'—'}</td><td>${c.sg}</td><td dir="ltr" style="text-align:left"><b>#${c.d}</b> ${DN[c.d-1]}</td>
+  <td><button class="bt or" onclick="startEdit('${c.u}')">✏️</button> <button class="bt rd" onclick="delCase('${c.u}')">🗑️</button></td></tr>`).join('')||'<tr><td colspan="10" style="padding:16px;color:#64748b">لا توجد حالات في هذا النطاق</td></tr>'
 }
 
-// =========================================================================
-// 1. إدارة بيانات المنشأة والتوقيع الرسمي
-// =========================================================================
-function loadFacilitySettings() {
-  try {
-    const raw = localStorage.getItem(FACILITY_KEY);
-    if (raw) facilityProfile = { ...facilityProfile, ...JSON.parse(raw) };
-  } catch (e) {}
-  try {
-    const rawPins = localStorage.getItem(PINS_KEY);
-    if (rawPins) pinnedState = { ...pinnedState, ...JSON.parse(rawPins) };
-  } catch (e) {}
-  updatePinButtonsUI();
-}
-
-function openFacilityModal() {
-  document.getElementById('facGov').value = facilityProfile.gov || '';
-  document.getElementById('facDist').value = facilityProfile.dist || '';
-  document.getElementById('facName').value = facilityProfile.name || '';
-  document.getElementById('facOrg').value = facilityProfile.org || '';
-  document.getElementById('facReporter').value = facilityProfile.reporter || '';
-  document.getElementById('facTitle').value = facilityProfile.title || '';
-  document.getElementById('facilityModal').classList.remove('hidden');
-}
-
-function closeFacilityModal() {
-  document.getElementById('facilityModal').classList.add('hidden');
-}
-
-function saveFacilitySettings() {
-  facilityProfile = {
-    gov: document.getElementById('facGov').value.trim(),
-    dist: document.getElementById('facDist').value.trim(),
-    name: document.getElementById('facName').value.trim(),
-    org: document.getElementById('facOrg').value.trim() || 'MoPHP / Health Cluster',
-    reporter: document.getElementById('facReporter').value.trim(),
-    title: document.getElementById('facTitle').value.trim()
-  };
-  try { localStorage.setItem(FACILITY_KEY, JSON.stringify(facilityProfile)); } catch (e) {}
-  renderReports();
-  closeFacilityModal();
-  showToast('✅ تم حفظ بيانات الترويسة والتوقيع الرسمي');
-}
-
-// =========================================================================
-// 2. ميزات السرعة الفائقة: التثبيت + الأكثر شيوعاً + التعديل السريع
-// =========================================================================
-function togglePin(field) {
-  pinnedState[field] = !pinnedState[field];
-  try { localStorage.setItem(PINS_KEY, JSON.stringify(pinnedState)); } catch (e) {}
-  updatePinButtonsUI();
-  showToast(pinnedState[field] ? '📌 تم تثبيت الخيار للحالات القادمة' : '🔓 تم إلغاء تثبيت الخيار');
-}
-
-function updatePinButtonsUI() {
-  const btnCase = document.getElementById('pinCaseTypeBtn');
-  const btnSpec = document.getElementById('pinSpecialGroupBtn');
-  if (btnCase) {
-    btnCase.classList.toggle('pinned', pinnedState.caseType);
-    btnCase.textContent = pinnedState.caseType ? '📌 مُثبّت (مفعّل)' : '📌 تثبيت الخيار';
-  }
-  if (btnSpec) {
-    btnSpec.classList.toggle('pinned', pinnedState.specialGroup);
-    btnSpec.textContent = pinnedState.specialGroup ? '📌 الفئة مُثبّتة (مفعّل)' : '📌 تثبيت الفئة (مفيد للمخيمات)';
-  }
-}
-
-function renderQuickPicks() {
-  const counts = {};
-  allCases.forEach(c => { counts[c.diagId] = (counts[c.diagId] || 0) + 1; });
-
-  let topIds = Object.keys(counts).map(Number).sort((a, b) => counts[b] - counts[a]).slice(0, 6);
-  DEFAULT_TOP_DIAGS.forEach(id => {
-    if (topIds.length < 6 && !topIds.includes(id)) topIds.push(id);
+// ===== الاستمارة الرسمية =====
+function agg(cs){
+  const m={},nc=[Array(6).fill(0),Array(6).fill(0)],fc=[Array(6).fill(0),Array(6).fill(0)],nb=[Array(6).fill(0),Array(6).fill(0)],sg={};
+  cs.forEach(c=>{
+    const g=c.g==='F'?0:1;(m[c.d]=m[c.d]||Z())[(c.t==='New'?0:12)+c.a*2+g]++;
+    (c.t==='New'?nc:fc)[g][c.a]++;if(c.nb&&c.t==='New')nb[g][c.a]++;
+    const k=c.sg==='Non'?'Host':c.sg;(sg[k]=sg[k]||[0,0,0,0])[(c.a<=3?0:2)+g]++
   });
-
-  const container = document.getElementById('quickPicksContainer');
-  container.innerHTML = topIds.map(id => {
-    const d = DIAGNOSES.find(x => x.id === id);
-    if (!d) return '';
-    const cnt = counts[id] || 0;
-    const isSel = currentForm.diagId === d.id;
-    return `
-      <div class="quick-chip ${isSel ? 'selected' : ''}" onclick="selectDiagnosis(${d.id})">
-        <span class="quick-chip-num">#${d.id}</span>
-        <span>${d.name}</span>
-        ${cnt > 0 ? `<small style="color:#0f766e;">(${cnt})</small>` : ''}
-      </div>
-    `;
-  }).join('');
+  return{m,nc,fc,nb,sg}
 }
-
-function startEditCase(uid) {
-  const target = allCases.find(c => c.uid === uid);
-  if (!target) return;
-  editingUid = uid;
-
-  document.getElementById('workDate').value = target.date;
-  selectOption('gender', target.gender);
-  selectOption('ageGroup', target.ageGroup);
-  selectOption('caseType', target.caseType);
-  selectOption('specialGroup', target.specialGroup);
-  selectDiagnosis(target.diagId);
-
-  document.getElementById('editModeBanner').classList.remove('hidden');
-  document.getElementById('editModeText').textContent = `✏️ وضع التعديل: جاري تعديل الحالة رقم #${target.serial} (${target.date})`;
-  const saveBtn = document.getElementById('mainSaveBtn');
-  saveBtn.textContent = `💾 حفظ التعديلات على الحالة رقم #${target.serial}`;
-  saveBtn.classList.add('edit-active');
-
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  showToast(`✏️ عدّل بيانات الحالة #${target.serial} ثم اضغط حفظ`);
-}
-
-function cancelEditCase() {
-  editingUid = null;
-  document.getElementById('editModeBanner').classList.add('hidden');
-  const saveBtn = document.getElementById('mainSaveBtn');
-  saveBtn.textContent = '✅ حفظ الحالة وإضافتها للسجل التسلسلي بالأسفل';
-  saveBtn.classList.remove('edit-active');
-  resetFormAfterSave();
-}
-
-function resetFormAfterSave() {
-  currentForm.gender = '';
-  currentForm.ageGroup = '';
-  if (!pinnedState.caseType) currentForm.caseType = 'New';
-  if (!pinnedState.specialGroup) currentForm.specialGroup = 'Non';
-  currentForm.diagId = null;
-
-  document.getElementById('diagSearch').value = '';
-  document.getElementById('selectedDiagBadge').textContent = 'لم يتم الاختيار';
-  document.querySelectorAll('.choice-btn[data-group="gender"], .choice-btn[data-group="ageGroup"]').forEach(b => b.classList.remove('selected'));
-  selectOption('caseType', currentForm.caseType);
-  selectOption('specialGroup', currentForm.specialGroup);
-  renderDiagList();
-  renderQuickPicks();
-  updateLivePreview();
-}
-
-// =========================================================================
-// 3. تطبيع السجلات (تم إصلاح خطأ Female/Male الجذري هنا)
-// =========================================================================
-function parseGenderStrict(rawVal, diagIdNum) {
-  // الأمراض 48 و 49 (أمراض الحمل والنساء) هي إناث حتماً
-  if (diagIdNum === 48 || diagIdNum === 49) return 'Female';
-
-  const g = String(rawVal ?? 'Female').toLowerCase().trim();
-  // فحص الإناث أولاً لأن كلمة female تحتوي على كلمة male بداخلها!
-  if (g === 'female' || g === 'f' || g.startsWith('fem') || g.includes('أنثى') || g.includes('انثى') || g.includes('أنث') || g.includes('انث')) {
-    return 'Female';
+const V=a=>{const f=a.reduce((s,v,i)=>s+(i%2?0:v),0),m=a.reduce((s,v,i)=>s+(i%2?v:0),0);return[...a,f,m,f+m]};
+const nz=v=>v>0?`<td class="nz">${v}</td>`:'<td>0</td>',tl=a=>a.map(v=>`<td>${v}</td>`).join('');
+function renderReport(){
+  const r=rng(),cs=getCases(),A=agg(cs),h=HF[S.fac.hf]||['','','',''],F=cs.filter(c=>c.g==='F').length,M=cs.length-F;
+  const per=scope==='day'?`${r[0]} (${dayName(r[0])})`:scope==='all'?'Cumulative':`${r[0]} → ${r[1]}`;
+  $('hG').textContent=h[0]||'__________';$('hD').textContent=h[1]||'__________';$('hF').textContent=h[2]||'__________';$('hP').textContent=per;
+  $('rOrg').textContent=S.fac.org;$('rMeta').textContent=`${scope.toUpperCase()} REPORT | TOTAL CASES: ${cs.length} (F: ${F} | M: ${M})`;
+  $('fR').textContent=S.fac.rep||h[3]||'__________';$('fT').textContent=S.fac.title||'__________';$('fN').textContent=cs.length;$('fS').textContent=`F: ${F} | M: ${M}`;$('fD').textContent=new Date().toISOString().slice(0,16).replace('T',' ');
+  // 1) المستفيدون: الجدد يُدخلون، والمتابعة = (جديد+متابعة) − المستفيدين الجدد
+  let h1=`<table class="mt" id="tBen"><thead><tr><th rowspan="2">Gender</th><th colspan="6" class="tn">NEW BENEFICIARIES</th><th rowspan="2" class="tt">Total New</th><th colspan="6" class="tf">FOLLOW UP</th><th rowspan="2" class="tt">Total Follow</th><th rowspan="2" class="tt">Total</th></tr><tr>${AL.map(a=>`<th class="tn">${a}</th>`).join('')}${AL.map(a=>`<th class="tf">${a}</th>`).join('')}</tr></thead><tbody>`;
+  const bs=Array(15).fill(0);
+  [0,1].forEach(g=>{const n=A.nb[g],f=AL.map((_,a)=>Math.max(0,A.nc[g][a]+A.fc[g][a]-n[a])),ns=sum(n),fs=sum(f),row=[...n,ns,...f,fs,ns+fs];row.forEach((v,i)=>bs[i]+=v);h1+=`<tr><td><b>${'FM'[g]}</b></td>${row.map(nz).join('')}</tr>`});
+  $('wBen').innerHTML=h1+`<tr class="tl"><td>Total</td>${tl(bs)}</tr></tbody></table>`;
+  // 2) الفئات الخاصة (Host تلقائي)
+  let h2=`<table class="mt" id="tSpec"><thead><tr><th rowspan="2" class="ts">Special Groups</th><th colspan="2" class="ts">0 - 18 Y</th><th colspan="2" class="ts">≥ 18 Y</th><th rowspan="2" class="tt">Total</th></tr><tr><th>F</th><th>M</th><th>F</th><th>M</th></tr></thead><tbody>`;
+  const ss=[0,0,0,0,0];['IDPs','Migrants','Disability','Host'].forEach(k=>{const v=A.sg[k]||[0,0,0,0],t=sum(v);[...v,t].forEach((x,i)=>ss[i]+=x);h2+=`<tr><td style="text-align:left;font-weight:800">${k}</td>${v.map(nz).join('')}<td><b>${t}</b></td></tr>`});
+  $('wSpec').innerHTML=h2+`<tr class="tl"><td style="text-align:left">Total</td>${tl(ss)}</tr></tbody></table>`;
+  // 3) مصفوفة 55 تشخيصاً
+  let h3=`<table class="mt" id="tMat"><thead><tr><th rowspan="3">#</th><th rowspan="3">Diagnosis</th><th colspan="12" class="tn">NEW CASES</th><th colspan="12" class="tf">FOLLOW UP CASES</th><th colspan="3" rowspan="2" class="tt">TOTAL</th></tr><tr>${[0,1].map(t=>AL.map(a=>`<th colspan="2" class="${t?'tf':'tn'}">${a}</th>`).join('')).join('')}</tr><tr>${'<th>F</th><th>M</th>'.repeat(12)}<th class="tt">F</th><th class="tt">M</th><th class="tt">ALL</th></tr></thead><tbody>`;
+  const sec=(lo,hi)=>{const s=Z();for(let d=lo;d<=hi;d++)(A.m[d]||Z()).forEach((v,i)=>s[i]+=v);return V(s)};
+  for(let d=1;d<=55;d++){
+    SEC.filter(s=>s[3]>=s[2]&&s[2]===d).forEach(s=>{h3+=`<tr class="${s[0]===s[0].toUpperCase()?'cat':'sub'}"><td colspan="2">${s[0]}. ${s[1]}</td>${tl(sec(s[2],s[3]))}</tr>`});
+    h3+=`<tr><td><b>${d}</b></td><td class="dn">${DN[d-1]}</td>${V(A.m[d]||Z()).map(nz).join('')}</tr>`
   }
-  if (g === 'male' || g === 'm' || g === 'ذكر') {
-    return 'Male';
-  }
-  return 'Female';
+  $('wMat').innerHTML=h3+`<tr class="tl"><td colspan="2">Total</td>${tl(sec(1,55))}</tr></tbody></table>`;
+  // 4) الإحالات
+  const rf=getRefs();
+  let h4=`<table class="mt" id="tRef"><thead><tr><th rowspan="3">Referrals</th>${AL.map(a=>`<th colspan="2">${a}</th>`).join('')}<th colspan="3" class="tt">Total</th><th rowspan="3">Comments (age, sex &amp; cause)</th></tr><tr>${'<th>F</th><th>M</th>'.repeat(6)}<th class="tt">F</th><th class="tt">M</th><th class="tt">ALL</th></tr></thead><tbody>`.replace('</tr><tr>${','</tr><tr>');
+  h4=h4.replace(/<th rowspan="3">Referrals/,'<th rowspan="2">Referrals').replace(/<th rowspan="3">Comments/,'<th rowspan="2">Comments');
+  RT.forEach((n,t)=>{const a=Z(),l=rf.filter(x=>x.t===t);l.forEach(x=>a[x.a*2+(x.g==='F'?0:1)]++);h4+=`<tr><td class="dn">${n}</td>${V(a.slice(0,12).concat()).slice(0,12).concat([]).map(nz).join('')}${(()=>{const v=V(a);return[v[24],v[25],v[26]].map(nz).join('')})()}<td class="cm">${l.map(x=>`${AL[x.a]}/${x.g}${x.cm?'/'+x.cm:''}`).join('; ')}</td></tr>`});
+  $('wRef').innerHTML=h4+'</tbody></table>';
+  // 5) IMCI وبقية المؤشرات (تلقائي من الحالات + مدخلات اليوم)
+  const im=(a,g)=>A.nc[g][a]+A.fc[g][a],row=(n,d,t)=>`<tr><td class="dn">${n}</td><td class="cm">${d}</td><td><b>${t}</b></td></tr>`;
+  const tri=[X('tri',0),X('tri',1)],va=[0,1,2,3].map(i=>X('va',i)),el=[X('eld',0),X('eld',1)],gh=[X('gho',0),X('gho',1)],dr=[0,1,2,3,4].map(i=>X('dr',i));
+  const D=['Nifedipine 10mg','Methyldopa 250mg','Misoprostol 200mcg','Hydralazine 20mg','MgSO4 0.5g/ml'];
+  $('wOth').innerHTML=`<table class="mt" id="tOth"><thead><tr><th>Indicator</th><th>Details</th><th class="tt">Total</th></tr></thead><tbody>`+
+   row('Total cases triaged at HC entry',`Female: ${tri[0]} | Male: ${tri[1]}`,sum(tri))+
+   row('Patients receiving Vitamin A',`0-6 m F: ${va[0]} | M: ${va[1]} — 6-59 m F: ${va[2]} | M: ${va[3]}`,sum(va))+
+   row('Total # of IMCI consultations (auto)',`0-6 m F: ${im(0,0)} | M: ${im(0,1)} — 7-59 m F: ${im(1,0)} | M: ${im(1,1)}`,im(0,0)+im(0,1)+im(1,0)+im(1,1))+
+   row('Consultations of Elderly (> 65 Y)',`Female: ${el[0]} | Male: ${el[1]}`,sum(el))+
+   row('Number of GHO trained (on-job coaching)',`Female: ${gh[0]} | Male: ${gh[1]}`,sum(gh))+
+   row('Restricted-use drugs (women treated)',D.map((n,i)=>`${n}: ${dr[i]}`).join(' | '),sum(dr))+'</tbody></table>'
+}
+function refresh(){
+  const d=$('wd').value;$('dn').textContent=dayName(d);
+  const n=S.cases.filter(c=>c.date===d).length;
+  $('bNext').textContent='القادمة: #'+(n+1);$('bTot').textContent='الإجمالي: '+S.cases.length;
+  renderLog();renderExtras();renderReport()
 }
 
-function normalizeRecord(r, idx) {
-  if (!r || typeof r !== 'object') return null;
+// ===== المرفق =====
+function openFac(){
+  $('fHf').innerHTML='<option value="-1">— اختر المرفق —</option>'+HF.map((h,i)=>`<option value="${i}">${h[2]} ${h[0]?'('+h[1]+')':''}</option>`).join('');
+  $('fHf').value=S.fac.hf;$('fRep').value=S.fac.rep;$('fTitle').value=S.fac.title;$('fOrg').value=S.fac.org;fillHf();$('facM').classList.remove('hidden')
+}
+function fillHf(){const h=HF[+$('fHf').value];$('fInfo').textContent=h?`${h[0]} › ${h[1]} — Doctor: ${h[3]||'-'}`:''}
+function saveFac(){S.fac={hf:+$('fHf').value,rep:$('fRep').value.trim(),title:$('fTitle').value.trim(),org:$('fOrg').value.trim()||'MoPHP / Health Cluster'};save();$('facM').classList.add('hidden');refresh();toast('✅ تم الحفظ')}
 
-  let diagId = Number(r.diagId ?? r.diagnosisId ?? r.id ?? r['Diagnosis #'] ?? r['Diag#'] ?? r['رقم التشخيص'] ?? 0);
-  let diagObj = DIAGNOSES.find(d => d.id === diagId);
-  if (!diagObj) {
-    const rawName = String(r.diagName ?? r.diagnosis ?? r['Diagnosis Name'] ?? r['Diagnosis'] ?? r['التشخيص'] ?? '').toLowerCase().trim();
-    if (rawName) {
-      diagObj = DIAGNOSES.find(d => d.name.toLowerCase() === rawName || rawName.includes(d.name.toLowerCase()));
-    }
-  }
-  if (!diagObj) return null;
-
-  let rawAge = String(r.ageGroup ?? r['Age Group'] ?? r['Age'] ?? r['الفئة العمرية'] ?? '5-14 years').trim();
-  let ag = '5-14 years';
-  if (rawAge.includes('0-6')) ag = '0-6 months';
-  else if (rawAge.includes('7-59')) ag = '7-59 months';
-  else if (rawAge.includes('5-14') || rawAge.includes('5Y-14Y')) ag = '5-14 years';
-  else if (rawAge.includes('15-18') || rawAge.includes('15Y-18Y')) ag = '15-18 years';
-  else if (rawAge.includes('19-49') || rawAge.includes('19Y-49Y')) ag = '19-49 years';
-  else if (rawAge.includes('50')) ag = '>= 50 years';
-
-  let rawType = String(r.caseType ?? r['Case Type'] ?? r['Type'] ?? r['نوع الحالة'] ?? 'New').toLowerCase();
-  let ct = rawType.includes('follow') || rawType.includes('متابع') ? 'Follow up' : 'New';
-
-  let rawSpec = String(r.specialGroup ?? r['Special Group'] ?? r['Group'] ?? r['الفئة الخاصة'] ?? 'Non').toLowerCase();
-  let sg = 'Non';
-  if (rawSpec.includes('idp') || rawSpec.includes('نازح')) sg = 'IDPs';
-  else if (rawSpec.includes('mig') || rawSpec.includes('مهاجر')) sg = 'Migrants';
-  else if (rawSpec.includes('dis') || rawSpec.includes('إعاق')) sg = 'Disability';
-
-  let gen = parseGenderStrict(r.gender ?? r['Gender'] ?? r['الجنس'], diagObj.id);
-
-  let rawDate = String(r.date ?? r['Date'] ?? r['التاريخ'] ?? new Date().toISOString().split('T')[0]).trim();
-  let dateStr = rawDate.slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    dateStr = new Date().toISOString().split('T')[0];
-  }
-
-  return {
-    uid: r.uid || (Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2,7)),
-    serial: Number(r.serial ?? r['Serial #'] ?? r['Serial'] ?? (idx + 1)),
-    date: dateStr,
-    dayName: getArabicDayName(dateStr),
-    time: String(r.time ?? r['Time'] ?? '08:00').slice(0, 5),
-    gender: gen,
-    ageGroup: ag,
-    caseType: ct,
-    specialGroup: sg,
-    diagId: diagObj.id,
-    diagName: diagObj.name
-  };
+// ===== التصدير =====
+const fn=()=>{const d=new Date($('wd').value+'T00:00:00'),h=(HF[S.fac.hf]||['','','HF'])[2].replace(/\W+/g,'-');return`YEM-HOD-ECHO_23028-Morbidity_Report-${h}-${MON[d.getMonth()]}-${String(d.getFullYear()).slice(2)}${scope==='day'?'_'+$('wd').value:'_'+scope}`};
+async function send(b64,name,mime){
+  if(window.plugins&&window.plugins.socialsharing){window.plugins.socialsharing.shareWithOptions({message:name,subject:name,files:[`df:${name};base64,${b64}`],chooserTitle:'حفظ / مشاركة'},()=>toast('✅ تم'),()=>window.plugins.socialsharing.share(null,name,`data:${mime};base64,${b64}`,null));return}
+  const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);const blob=new Blob([u],{type:mime});
+  try{const f=new File([blob],name,{type:mime});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==='AbortError')return}
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},2500);toast('📥 '+name)
+}
+async function exportXlsx(){
+  if(typeof XLSX==='undefined')return toast('⚠️ مكتبة Excel غير جاهزة');
+  renderReport();const r=rng(),cs=getCases(),h=HF[S.fac.hf]||['','','',''],sr=serials(),wb=XLSX.utils.book_new(),add=(s,n)=>XLSX.utils.book_append_sheet(wb,s,n);
+  add(XLSX.utils.aoa_to_sheet([['MORBIDITY-IMCI DAILY FORM - REPORT INFORMATION'],['Project','ECHO (YEM-HOD-ECHO 23028)'],['Governorate',h[0]],['District',h[1]],['Health Facility',h[2]],['Collected by',S.fac.rep||h[3]],['Job title',S.fac.title],['Organization',S.fac.org],['Period',r[0]+' to '+r[1]],['Total cases',cs.length]]),'Report Info');
+  [['tBen','Beneficiaries'],['tSpec','Special Groups'],['tMat','Morbidity 1-55'],['tRef','Referrals'],['tOth','IMCI & Other']].forEach(([i,n])=>add(XLSX.utils.table_to_sheet($(i)),n));
+  add(XLSX.utils.aoa_to_sheet([['Serial','Date','Day','Time','Gender','Age Group','Case Type','New Beneficiary','Special Group','Dx #','Diagnosis'],...cs.map(c=>[sr[c.u],c.date,dayName(c.date),c.time,c.g,AG[c.a],c.t,c.nb?'Yes':'No',c.sg,c.d,DN[c.d-1]])]),'Cases Log');
+  await send(XLSX.write(wb,{bookType:'xlsx',type:'base64'}),fn()+'.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+}
+async function exportPdf(){
+  if(typeof html2pdf==='undefined')return toast('⚠️ مكتبة PDF غير جاهزة');
+  renderReport();$('ov').classList.remove('hidden');
+  // منصة تصوير معزولة عند (0,0) لتفادي قص الأعمدة على شاشات الهواتف
+  const st=$('stage'),W=1250,cl=$('rep').cloneNode(true);cl.removeAttribute('id');cl.classList.add('pdfm');cl.style.cssText=`width:${W}px;margin:0;padding:6px`;
+  st.innerHTML='';st.style.width=W+'px';st.style.display='block';st.appendChild(cl);await sleep(250);
+  try{
+    const uri=await html2pdf().set({margin:3,filename:fn()+'.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,scrollX:0,scrollY:0,x:0,y:0,windowWidth:W,width:W},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy']}}).from(cl).outputPdf('datauristring');
+    st.style.display='none';st.innerHTML='';$('ov').classList.add('hidden');await send(uri.split(',')[1],fn()+'.pdf','application/pdf')
+  }catch(e){st.style.display='none';st.innerHTML='';$('ov').classList.add('hidden');toast('⚠️ تعذر توليد PDF: '+(e.message||e))}
 }
 
-function recalculateDailySerials() {
-  const counters = {};
-  allCases.forEach(c => {
-    counters[c.date] = (counters[c.date] || 0) + 1;
-    c.serial = counters[c.date];
-    c.dayName = getArabicDayName(c.date);
-  });
+// ===== النسخ الاحتياطي =====
+function openBk(){$('bkN').textContent=S.cases.length;$('bkT').value='';$('bkM').classList.remove('hidden')}
+const bkPayload=()=>JSON.stringify({v:5,cases:S.cases,refs:S.refs,extras:S.extras,fac:S.fac},null,1);
+const u8b64=s=>btoa(unescape(encodeURIComponent(s)));
+const bkExport=()=>send(u8b64(bkPayload()),`Morbidity_Backup_${$('wd').value}.json`,'application/json');
+function bkCopy(){const j=bkPayload();$('bkT').value=j;(navigator.clipboard?navigator.clipboard.writeText(j):Promise.reject()).then(()=>toast('📋 تم النسخ')).catch(()=>toast('📋 حدّد النص وانسخه يدوياً'))}
+function bkRestore(txt){
+  let o=null;try{o=JSON.parse(String(txt).replace(/^\uFEFF/,'').trim())}catch(e){const a=txt.indexOf('['),b=txt.lastIndexOf(']');try{o=JSON.parse(txt.slice(a,b+1))}catch(x){}}
+  if(!o)return toast('⚠️ النص غير صالح');
+  const raw=Array.isArray(o)?o:(o.cases||o.records||o.data||[]),cs=raw.map(norm).filter(Boolean);
+  if(!cs.length&&!(o.refs||[]).length)return toast('⚠️ لا توجد سجلات صالحة');
+  if(document.querySelector('input[name=rm]:checked').value==='replace'){S.cases=cs;S.refs=o.refs||[];S.extras=o.extras||{}}
+  else{const ids=new Set(S.cases.map(c=>c.u));cs.forEach(c=>{if(!ids.has(c.u))S.cases.push(c)});const rid=new Set(S.refs.map(r=>r.u));(o.refs||[]).forEach(r=>{if(!rid.has(r.u))S.refs.push(r)});Object.keys(o.extras||{}).forEach(d=>{if(!S.extras[d])S.extras[d]=o.extras[d]})}
+  if(o.fac)S.fac={...S.fac,...o.fac};
+  save();if(S.cases.length)$('wd').value=S.cases[S.cases.length-1].date;$('bkM').classList.add('hidden');refresh();renderQuick();toast('✅ تمت الاستعادة: '+S.cases.length+' حالة')
 }
+function bkFile(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{bkRestore(ev.target.result);e.target.value=''};r.readAsText(f)}
 
-function saveToStorage() {
-  const json = JSON.stringify(allCases);
-  try { localStorage.setItem(STORAGE_KEY, json); } catch(e){}
-  try { localStorage.setItem('MORBIDITY_APP', json); } catch(e){}
-  try { sessionStorage.setItem(STORAGE_KEY, json); } catch(e){}
-  try { window.name = json; } catch(e){}
-  try {
-    const req = indexedDB.open('MorbidityDB', 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore('store');
-    req.onsuccess = e => {
-      const tx = e.target.result.transaction('store', 'readwrite');
-      tx.objectStore('store').put(json, 'records');
-    };
-  } catch(e){}
+function init(){
+  load();
+  chips('cG','g',[['F','👩 Female (أنثى)','F'],['M','👨 Male (ذكر)','M']]);
+  chips('cA','a',AL.map((l,i)=>[i,l]));
+  chips('cT','t',[['New','🆕 New (جديدة)'],['Follow up','🔄 Follow up (متابعة)']]);
+  chips('cN','nb',[['Yes','✔ نعم (مستفيد جديد)'],['No','✖ لا']]);
+  chips('cS','sg',[['Non','Non / Host (مجتمع مضيف)'],['IDPs','⛺ IDPs'],['Migrants','🌍 Migrants'],['Disability','♿ Disability']]);
+  const so=[['day','اليوم'],['week','الأسبوع (سبت-خميس)'],['month','الشهر'],['all','الكل']].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');$('sc1').innerHTML=so;$('sc2').innerHTML=so;
+  $('rT').innerHTML=RT.map((n,i)=>`<option value="${i}">${n}</option>`).join('');$('rA').innerHTML=AL.map((l,i)=>`<option value="${i}">${l}</option>`).join('');
+  $('wd').value=today();if(!S.cases.some(c=>c.date===today())&&S.cases.length)$('wd').value=S.cases[S.cases.length-1].date;
+  if(S.pins.t)cur.nb='Yes';sync();renderDiag();renderQuick();refresh()
 }
-
-function loadFromStorage(cb) {
-  let bestData = [];
-  const tryParse = raw => {
-    if (!raw) return;
-    try {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) {
-        // تفضيل المصفوفة التي تحتوي على تنوع الإناث والذكور إذا تساوى العدد
-        const hasFemales = arr.some(x => String(x.gender || '').toLowerCase().startsWith('f'));
-        const bestHasFemales = bestData.some(x => String(x.gender || '').toLowerCase().startsWith('f'));
-        if (arr.length > bestData.length || (arr.length === bestData.length && hasFemales && !bestHasFemales)) {
-          bestData = arr;
-        }
-      }
-    } catch(e){}
-  };
-
-  try { tryParse(localStorage.getItem(STORAGE_KEY)); } catch(e){}
-  LEGACY_KEYS.forEach(k => { try { tryParse(localStorage.getItem(k)); } catch(e){} });
-  try { tryParse(sessionStorage.getItem(STORAGE_KEY)); } catch(e){}
-  if (window.name && window.name.startsWith('[')) tryParse(window.name);
-
-  try {
-    const req = indexedDB.open('MorbidityDB', 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore('store');
-    req.onsuccess = e => {
-      const tx = e.target.result.transaction('store', 'readonly');
-      const getReq = tx.objectStore('store').get('records');
-      getReq.onsuccess = () => {
-        if (getReq.result) tryParse(getReq.result);
-        allCases = bestData.map((r, i) => normalizeRecord(r, i)).filter(Boolean);
-        recalculateDailySerials();
-        saveToStorage();
-        cb();
-      };
-      getReq.onerror = () => { allCases = bestData.map((r, i) => normalizeRecord(r, i)).filter(Boolean); cb(); };
-    };
-    req.onerror = () => { allCases = bestData.map((r, i) => normalizeRecord(r, i)).filter(Boolean); cb(); };
-  } catch(e) {
-    allCases = bestData.map((r, i) => normalizeRecord(r, i)).filter(Boolean);
-    cb();
-  }
-}
-
-function initApp() {
-  loadFacilitySettings();
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('workDate').value = today;
-  loadFromStorage(() => {
-    const todayCases = allCases.filter(c => c.date === today);
-    if (todayCases.length === 0 && allCases.length > 0) {
-      document.getElementById('workDate').value = allCases[allCases.length - 1].date;
-    }
-    onDateChange();
-    renderDiagList();
-    renderQuickPicks();
-    updateLivePreview();
-  });
-}
-
-function onDateChange() {
-  const dateStr = document.getElementById('workDate').value;
-  document.getElementById('dayNameLabel').textContent = getArabicDayName(dateStr);
-  updateCountsAndSerial();
-  renderDailyLog();
-  renderReports();
-}
-
-function onScopeChange(val) {
-  document.getElementById('reportScope').value = val;
-  document.getElementById('logScopeSelect').value = val;
-  updateCountsAndSerial();
-  renderDailyLog();
-  renderReports();
-}
-
-function getDayCases() {
-  const dateStr = document.getElementById('workDate').value;
-  return allCases.filter(c => c.date === dateStr);
-}
-
-function getScopedCases() {
-  const scope = document.getElementById('reportScope') ? document.getElementById('reportScope').value : 'day';
-  const dateStr = document.getElementById('workDate').value;
-  return scope === 'all' ? allCases : allCases.filter(c => c.date === dateStr);
-}
-
-function updateCountsAndSerial() {
-  const dayCases = getDayCases();
-  const scopedCases = getScopedCases();
-  document.getElementById('nextSerialBadge').textContent = `الحالة القادمة: #${dayCases.length + 1}`;
-  document.getElementById('totalDbBadge').textContent = `إجمالي الذاكرة: ${allCases.length}`;
-  document.getElementById('countReport').textContent = scopedCases.length;
-  document.getElementById('countLog').textContent = scopedCases.length;
-}
-
-function selectOption(group, val) {
-  currentForm[group] = val;
-  document.querySelectorAll(`.choice-btn[data-group="${group}"]`).forEach(btn => {
-    btn.classList.toggle('selected', btn.getAttribute('data-val') === val);
-  });
-  updateLivePreview();
-}
-
-function selectDiagnosis(id) {
-  currentForm.diagId = id;
-  // إذا اختار الطبيب تشخيص حمل أو أمراض نساء (48 أو 49) يتم تحديد الجنس Female تلقائياً
-  if (id === 48 || id === 49) {
-    selectOption('gender', 'Female');
-  }
-  const d = DIAGNOSES.find(x => x.id === id);
-  document.getElementById('selectedDiagBadge').textContent = d ? `#${d.id} ${d.name}` : 'لم يتم الاختيار';
-  renderDiagList();
-  renderQuickPicks();
-  updateLivePreview();
-}
-
-function renderDiagList() {
-  const q = (document.getElementById('diagSearch').value || '').trim().toLowerCase();
-  const container = document.getElementById('diagListContainer');
-  const filtered = DIAGNOSES.filter(d => !q || String(d.id) === q || String(d.id).startsWith(q) || d.name.toLowerCase().includes(q));
-  container.innerHTML = filtered.map(d => `
-    <div class="diag-item ${currentForm.diagId === d.id ? 'selected' : ''}" onclick="selectDiagnosis(${d.id})">
-      <span class="diag-num">${d.id}</span>
-      <span>${d.name}</span>
-    </div>
-  `).join('');
-}
-
-function updateLivePreview() {
-  const d = DIAGNOSES.find(x => x.id === currentForm.diagId);
-  const pills = [
-    `الجنس: ${currentForm.gender || '—'}`,
-    `العمر: ${currentForm.ageGroup || '—'}`,
-    `النوع: ${currentForm.caseType} ${pinnedState.caseType ? '📌' : ''}`,
-    `الفئة: ${currentForm.specialGroup} ${pinnedState.specialGroup ? '📌' : ''}`,
-    `التشخيص: ${d ? ('#' + d.id + ' ' + d.name) : '—'}`
-  ];
-  document.getElementById('livePreviewPills').innerHTML = pills.map(p => `<span class="pill">${p}</span>`).join('');
-}
-
-function saveCase() {
-  if (!currentForm.gender) { showToast('⚠️ يرجى اختيار الجنس (Gender)'); return; }
-  if (!currentForm.ageGroup) { showToast('⚠️ يرجى اختيار الفئة العمرية (Age Group)'); return; }
-  if (!currentForm.diagId) { showToast('⚠️ يرجى اختيار التشخيص (Diagnosis)'); return; }
-
-  const dateStr = document.getElementById('workDate').value;
-  const diagObj = DIAGNOSES.find(x => x.id === currentForm.diagId);
-  const strictGender = (currentForm.gender === 'Male') ? 'Male' : 'Female';
-
-  if (editingUid) {
-    const idx = allCases.findIndex(c => c.uid === editingUid);
-    if (idx !== -1) {
-      allCases[idx] = {
-        ...allCases[idx],
-        date: dateStr,
-        dayName: getArabicDayName(dateStr),
-        gender: strictGender,
-        ageGroup: currentForm.ageGroup,
-        caseType: currentForm.caseType,
-        specialGroup: currentForm.specialGroup,
-        diagId: diagObj.id,
-        diagName: diagObj.name
-      };
-      recalculateDailySerials();
-      saveToStorage();
-      const updatedSerial = allCases[idx].serial;
-      cancelEditCase();
-      onDateChange();
-      showToast(`✅ تم تحديث بيانات الحالة رقم #${updatedSerial} بنجاح`);
-      return;
-    }
-  }
-
-  const dayCases = getDayCases();
-  const serial = dayCases.length + 1;
-  const timeStr = new Date().toTimeString().split(' ')[0].slice(0,5);
-
-  allCases.push({
-    uid: Date.now() + '_' + Math.random().toString(36).slice(2,7),
-    serial, date: dateStr, dayName: getArabicDayName(dateStr), time: timeStr,
-    gender: strictGender, ageGroup: currentForm.ageGroup,
-    caseType: currentForm.caseType, specialGroup: currentForm.specialGroup,
-    diagId: diagObj.id, diagName: diagObj.name
-  });
-  saveToStorage();
-
-  resetFormAfterSave();
-  updateCountsAndSerial();
-  renderDailyLog();
-  renderReports();
-  showToast(`✅ تم حفظ الحالة رقم #${serial} (${strictGender === 'Female' ? 'أنثى' : 'ذكر'})`);
-}
-
-function switchTab(tab) {
-  ['entry','report'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
-  document.getElementById('tabBtnEntry').classList.toggle('active', tab === 'entry');
-  document.getElementById('tabBtnReport').classList.toggle('active', tab === 'report');
-  if (tab === 'report') renderReports();
-  if (tab === 'entry') renderDailyLog();
-}
-
-// ميزة تبديل الجنس السريع بنقرة واحدة من جدول السجل لتصحيح أي حالة سابقة فوراً
-function quickToggleGender(uid) {
-  const target = allCases.find(c => c.uid === uid);
-  if (!target) return;
-  target.gender = (target.gender === 'Female') ? 'Male' : 'Female';
-  saveToStorage();
-  renderDailyLog();
-  renderReports();
-  showToast(`🔄 تم تغيير جنس الحالة #${target.serial} إلى ${target.gender}`);
-}
-
-function renderDailyLog() {
-  const cases = getScopedCases().slice().reverse();
-  const tbody = document.getElementById('dailyLogTbody');
-  if (!cases.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="padding:18px; color:#64748b; font-weight:700;">لا توجد حالات في هذا النطاق — أدخل حالة جديدة أو استعد نسخة احتياطية</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = cases.map(c => `
-    <tr style="${editingUid === c.uid ? 'background:#fef3c7;' : ''}">
-      <td><span class="badge-serial">#${c.serial}</span></td>
-      <td>${c.time}</td>
-      <td>${c.date}</td>
-      <td>
-        <span onclick="quickToggleGender('${c.uid}')" style="cursor:pointer; padding:3px 8px; border-radius:6px; font-weight:900; display:inline-block; ${c.gender === 'Female' ? 'background:#fce7f3; color:#9d174d; border:1px solid #f472b6;' : 'background:#dbeafe; color:#1e40af; border:1px solid #60a5fa;'}" title="اضغط لتبديل الجنس فوراً">
-          ${c.gender === 'Female' ? '👩 Female' : '👨 Male'}
-        </span>
-      </td>
-      <td dir="ltr"><strong>${c.ageGroup}</strong></td>
-      <td>${c.caseType}</td>
-      <td>${c.specialGroup}</td>
-      <td dir="ltr" style="text-align:left;"><strong>#${c.diagId}</strong> - ${c.diagName}</td>
-      <td>
-        <div style="display:flex; gap:4px; justify-content:center;">
-          <button class="btn-action btn-edit" style="padding:4px 8px;" onclick="startEditCase('${c.uid}')">✏️ تعديل</button>
-          <button class="btn-action btn-pdf" style="padding:4px 8px;" onclick="deleteCase('${c.uid}')">🗑️</button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
-}
-
-function deleteCase(uid) {
-  if (editingUid === uid) cancelEditCase();
-  allCases = allCases.filter(c => c.uid !== uid);
-  recalculateDailySerials();
-  saveToStorage();
-  updateCountsAndSerial();
-  renderDailyLog();
-  renderReports();
-  renderQuickPicks();
-  showToast('🗑️ تم حذف الحالة وإعادة ترتيب التسلسل');
-}
-
-function clearCurrentDayCases() {
-  const dateStr = document.getElementById('workDate').value;
-  if (!confirm(`هل أنت متأكد من مسح جميع حالات يوم ${dateStr}؟`)) return;
-  allCases = allCases.filter(c => c.date !== dateStr);
-  saveToStorage();
-  updateCountsAndSerial();
-  renderDailyLog();
-  renderReports();
-  renderQuickPicks();
-  showToast('🗑️ تم مسح حالات اليوم');
-}
-
-function nz(val) {
-  return val > 0 ? `<td class="cell-nz">${val}</td>` : `<td>0</td>`;
-}
-
-function isFemaleCase(c) {
-  return String(c.gender || '').toLowerCase().trim().startsWith('f');
-}
-
-function isMaleCase(c) {
-  return !isFemaleCase(c);
-}
-
-function renderReports() {
-  const cases = getScopedCases();
-  const dateStr = document.getElementById('workDate').value;
-  const scope = document.getElementById('reportScope').value;
-
-  const totalFemalesCount = cases.filter(isFemaleCase).length;
-  const totalMalesCount = cases.filter(isMaleCase).length;
-
-  document.getElementById('hdrGov').textContent = facilityProfile.gov || '____________________';
-  document.getElementById('hdrDist').textContent = facilityProfile.dist || '____________________';
-  document.getElementById('hdrFacility').textContent = facilityProfile.name || '____________________';
-  document.getElementById('hdrOrgBadge').textContent = facilityProfile.org || 'MoPHP / Health Cluster';
-  document.getElementById('hdrDateScope').textContent = scope === 'day'
-    ? `${dateStr} (${getArabicDayName(dateStr)})`
-    : `Cumulative (${cases.length} Cases)`;
-
-  document.getElementById('reportHeaderMeta').textContent =
-    scope === 'day'
-      ? `DAILY REPORT | DATE: ${dateStr} | TOTAL CASES: ${cases.length} (Females: ${totalFemalesCount} | Males: ${totalMalesCount})`
-      : `CUMULATIVE REPORT | TOTAL CASES: ${cases.length} (Females: ${totalFemalesCount} | Males: ${totalMalesCount})`;
-
-  document.getElementById('ftrReporter').textContent = facilityProfile.reporter || '____________________';
-  document.getElementById('ftrTitle').textContent = facilityProfile.title || '____________________';
-  document.getElementById('ftrTotalCases').textContent = cases.length;
-  document.getElementById('ftrGenderSplit').textContent = `F: ${totalFemalesCount} | M: ${totalMalesCount}`;
-  document.getElementById('ftrTimestamp').textContent = new Date().toISOString().slice(0, 16).replace('T', ' ');
-
-  // 1. Beneficiaries Summary
-  let benHtml = `<table class="morbidity-table">
-    <thead>
-      <tr>
-        <th rowspan="2">Gender</th>
-        <th colspan="6" class="th-new">NEW BENEFICIARIES</th>
-        <th rowspan="2" class="th-total">Total</th>
-        <th colspan="6" class="th-follow">FOLLOW UP</th>
-        <th rowspan="2" class="th-total">Total</th>
-        <th rowspan="2" class="th-total">Total</th>
-      </tr>
-      <tr>
-        ${AGE_LABELS_SHORT.map(a => `<th class="th-new">${a}</th>`).join('')}
-        ${AGE_LABELS_SHORT.map(a => `<th class="th-follow">${a}</th>`).join('')}
-      </tr>
-    </thead>
-    <tbody>`;
-
-  ['Female', 'Male'].forEach(g => {
-    const checkGender = g === 'Female' ? isFemaleCase : isMaleCase;
-    const gShort = g === 'Female' ? 'F' : 'M';
-    let newTotal = 0, folTotal = 0;
-    const newCells = AGE_GROUPS.map(ag => {
-      const cnt = cases.filter(c => checkGender(c) && c.caseType === 'New' && c.ageGroup === ag).length;
-      newTotal += cnt;
-      return nz(cnt);
-    }).join('');
-    const folCells = AGE_GROUPS.map(ag => {
-      const cnt = cases.filter(c => checkGender(c) && c.caseType === 'Follow up' && c.ageGroup === ag).length;
-      folTotal += cnt;
-      return nz(cnt);
-    }).join('');
-    benHtml += `<tr>
-      <td><strong>${gShort}</strong></td>
-      ${newCells}
-      <td class="th-total"><strong>${newTotal}</strong></td>
-      ${folCells}
-      <td class="th-total"><strong>${folTotal}</strong></td>
-      <td class="th-total"><strong>${newTotal + folTotal}</strong></td>
-    </tr>`;
-  });
-  benHtml += `</tbody></table>`;
-  document.getElementById('beneficiariesTableWrap').innerHTML = benHtml;
-
-  // 2. Special Groups Summary
-  let specHtml = `<table class="morbidity-table">
-    <thead>
-      <tr>
-        <th rowspan="2" class="th-special">Special Groups</th>
-        <th colspan="2" class="th-special">0 - 18 Y</th>
-        <th colspan="2" class="th-special">&ge; 18 Y</th>
-        <th rowspan="2" class="th-total">Total</th>
-      </tr>
-      <tr>
-        <th>F</th><th>M</th><th>F</th><th>M</th>
-      </tr>
-    </thead>
-    <tbody>`;
-
-  SPECIAL_GROUPS.forEach(sg => {
-    const u18F = cases.filter(c => c.specialGroup === sg && UNDER_18_AGES.includes(c.ageGroup) && isFemaleCase(c)).length;
-    const u18M = cases.filter(c => c.specialGroup === sg && UNDER_18_AGES.includes(c.ageGroup) && isMaleCase(c)).length;
-    const o18F = cases.filter(c => c.specialGroup === sg && OVER_18_AGES.includes(c.ageGroup) && isFemaleCase(c)).length;
-    const o18M = cases.filter(c => c.specialGroup === sg && OVER_18_AGES.includes(c.ageGroup) && isMaleCase(c)).length;
-    const tot = u18F + u18M + o18F + o18M;
-    specHtml += `<tr>
-      <td style="text-align:left; font-weight:800; padding-left:6px;">${sg}</td>
-      ${nz(u18F)}${nz(u18M)}${nz(o18F)}${nz(o18M)}
-      <td class="th-total"><strong>${tot}</strong></td>
-    </tr>`;
-  });
-  specHtml += `</tbody></table>`;
-  document.getElementById('specialGroupsTableWrap').innerHTML = specHtml;
-
-  // 3. Daily Morbidity Matrix (1-55)
-  let matHtml = `<table class="morbidity-table">
-    <thead>
-      <tr>
-        <th rowspan="3">#</th>
-        <th rowspan="3">Diagnosis</th>
-        <th colspan="12" class="th-new">NEW CASES</th>
-        <th colspan="12" class="th-follow">FOLLOW UP CASES</th>
-        <th colspan="3" rowspan="2" class="th-total">TOTAL</th>
-        <th colspan="8" class="th-special">SPECIAL GROUPS (F / M)</th>
-      </tr>
-      <tr>
-        ${AGE_LABELS_SHORT.map(a => `<th colspan="2" class="th-new">${a}</th>`).join('')}
-        ${AGE_LABELS_SHORT.map(a => `<th colspan="2" class="th-follow">${a}</th>`).join('')}
-        <th colspan="2" class="th-special">IDPs</th>
-        <th colspan="2" class="th-special">Migrants</th>
-        <th colspan="2" class="th-special">Disability</th>
-        <th colspan="2" class="th-special">Non</th>
-      </tr>
-      <tr>
-        ${AGE_GROUPS.map(() => `<th>F</th><th>M</th>`).join('')}
-        ${AGE_GROUPS.map(() => `<th>F</th><th>M</th>`).join('')}
-        <th class="th-total">F</th><th class="th-total">M</th><th class="th-total">ALL</th>
-        <th>F</th><th>M</th><th>F</th><th>M</th><th>F</th><th>M</th><th>F</th><th>M</th>
-      </tr>
-    </thead>
-    <tbody>`;
-
-  const colSums = new Array(35).fill(0);
-
-  DIAGNOSES.forEach(d => {
-    if (d.id === 1) {
-      matHtml += `<tr class="cat-row"><td colspan="37">A. Communicable Diseases</td></tr>`;
-      matHtml += `<tr class="subcat-row"><td colspan="37">a. Notifiable Diseases</td></tr>`;
-    } else if (d.id === 30) {
-      matHtml += `<tr class="subcat-row"><td colspan="37">b. Other Infectious / Communicable Diseases</td></tr>`;
-    } else if (d.id === 35) {
-      matHtml += `<tr class="cat-row"><td colspan="37">B. Non-Communicable Diseases</td></tr>`;
-    } else if (d.id === 48) {
-      matHtml += `<tr class="cat-row"><td colspan="37">C. Reproductive Health</td></tr>`;
-    } else if (d.id === 50) {
-      matHtml += `<tr class="cat-row"><td colspan="37">D. Trauma-Related Injuries</td></tr>`;
-    } else if (d.id === 53) {
-      matHtml += `<tr class="cat-row"><td colspan="37">E. Others</td></tr>`;
-    }
-
-    const dCases = cases.filter(c => Number(c.diagId) === d.id);
-    let rowVals = [];
-
-    AGE_GROUPS.forEach(ag => {
-      rowVals.push(dCases.filter(c => c.caseType === 'New' && c.ageGroup === ag && isFemaleCase(c)).length);
-      rowVals.push(dCases.filter(c => c.caseType === 'New' && c.ageGroup === ag && isMaleCase(c)).length);
-    });
-    AGE_GROUPS.forEach(ag => {
-      rowVals.push(dCases.filter(c => c.caseType === 'Follow up' && c.ageGroup === ag && isFemaleCase(c)).length);
-      rowVals.push(dCases.filter(c => c.caseType === 'Follow up' && c.ageGroup === ag && isMaleCase(c)).length);
-    });
-    const totF = dCases.filter(isFemaleCase).length;
-    const totM = dCases.filter(isMaleCase).length;
-    rowVals.push(totF, totM, totF + totM);
-
-    SPECIAL_GROUPS.forEach(sg => {
-      rowVals.push(dCases.filter(c => c.specialGroup === sg && isFemaleCase(c)).length);
-      rowVals.push(dCases.filter(c => c.specialGroup === sg && isMaleCase(c)).length);
-    });
-
-    rowVals.forEach((v, i) => colSums[i] += v);
-
-    matHtml += `<tr>
-      <td><strong>${d.id}</strong></td>
-      <td class="diag-name-cell">${d.name}</td>
-      ${rowVals.map(v => nz(v)).join('')}
-    </tr>`;
-  });
-
-  matHtml += `<tr style="background:#fde047; font-weight:900;">
-    <td colspan="2">Total</td>
-    ${colSums.map(v => `<td>${v}</td>`).join('')}
-  </tr></tbody></table>`;
-
-  document.getElementById('morbidityMatrixWrap').innerHTML = matHtml;
-}
-
-// =========================================================================
-// 4. المحرك الجذري لحفظ ومشاركة وطباعة الملفات بدون FileReader (يعمل 100% في APK والموقع)
-// =========================================================================
-function base64ToBlob(b64Data, contentType) {
-  const byteCharacters = atob(b64Data);
-  const byteArrays = [];
-  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-    const slice = byteCharacters.slice(offset, offset + 512);
-    const byteNumbers = new Array(slice.length);
-    for (let i = 0; i < slice.length; i++) {
-      byteNumbers[i] = slice.charCodeAt(i);
-    }
-    byteArrays.push(new Uint8Array(byteNumbers));
-  }
-  return new Blob(byteArrays, { type: contentType });
-}
-
-async function dispatchBase64File(pureBase64, filename, mimeType) {
-  // 1. إذا كنا داخل تطبيق الأندرويد APK (Cordova SocialSharing)
-  if (window.plugins && window.plugins.socialsharing) {
-    const dfUri = `df:${filename};base64,${pureBase64}`;
-    window.plugins.socialsharing.shareWithOptions(
-      {
-        message: filename,
-        subject: filename,
-        files: [dfUri],
-        chooserTitle: 'اختر تطبيق لحفظ أو إرسال الملف'
-      },
-      () => showToast('✅ تمت مشاركة/حفظ الملف بنجاح'),
-      err => {
-        // محاولة ثانية بصيغة data: التقليدية إذا لزم الأمر
-        const fallbackUri = `data:${mimeType};base64,${pureBase64}`;
-        window.plugins.socialsharing.share(null, filename, fallbackUri, null);
-      }
-    );
-    return;
-  }
-
-  // 2. إذا كنا في متصفح الهاتف الحديث (Web Share API)
-  const blob = base64ToBlob(pureBase64, mimeType);
-  try {
-    const file = new File([blob], filename, { type: mimeType });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: filename });
-      showToast('✅ تمت مشاركة الملف بنجاح');
-      return;
-    }
-  } catch (e) {
-    if (e && e.name === 'AbortError') return;
-  }
-
-  // 3. التنزيل المباشر في متصفح الموقع
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2500);
-  showToast('📥 تم تنزيل الملف: ' + filename);
-}
-
-// الطباعة الذكية (تعمل في المتصفح وتعمل داخل تطبيق الـ APK عبر بلجن الطباعة أو توليد PDF)
-function triggerSmartPrint() {
-  if (window.cordova && cordova.plugins && cordova.plugins.printer) {
-    const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${document.querySelector('style').innerHTML}</style></head><body style="direction:ltr;background:#fff;">${document.getElementById('studioPaper').outerHTML}</body></html>`;
-    cordova.plugins.printer.print(htmlContent, { name: 'Daily_Morbidity_Form', orientation: document.getElementById('ctrlOrientation').value });
-    return;
-  }
-  if (window.cordova || (window.plugins && window.plugins.socialsharing)) {
-    // إذا كان داخل APK، قم بتوليد ملف الـ PDF وفتح نافذة أندرويد لاختيار الطابعة أو الحفظ
-    exportFinalPDF();
-    return;
-  }
-  window.print();
-}
-
-// =========================================================================
-// 5. استوديو المعاينة وتوليد الـ PDF المباشر (بدون Blob/FileReader)
-// =========================================================================
-function openPdfStudio() {
-  renderReports();
-  const sourceHtml = document.getElementById('printableReportArea').innerHTML;
-  const studioPaper = document.getElementById('studioPaper');
-  studioPaper.innerHTML = sourceHtml;
-  document.getElementById('pdfStudioModal').classList.remove('hidden');
-
-  const screenW = Math.min(window.innerWidth - 32, 1100);
-  const autoZoom = Math.max(0.28, Math.min(0.95, Number((screenW / 1100).toFixed(2))));
-  document.getElementById('ctrlPreviewZoom').value = autoZoom;
-  applyStudioSettings();
-  applyStudioZoom();
-}
-
-function closePdfStudio() {
-  document.getElementById('pdfStudioModal').classList.add('hidden');
-}
-
-function resetStudioDefaults() {
-  const orient = document.getElementById('ctrlOrientation').value;
-  if (orient === 'landscape') {
-    document.getElementById('ctrlPaperWidth').value = 1380;
-    document.getElementById('ctrlFontSize').value = 8.0;
-    document.getElementById('ctrlCellPad').value = 1.8;
-  } else {
-    document.getElementById('ctrlPaperWidth').value = 1100;
-    document.getElementById('ctrlFontSize').value = 7.3;
-    document.getElementById('ctrlCellPad').value = 1.4;
-  }
-  applyStudioSettings();
-}
-
-function applyStudioSettings() {
-  const w = document.getElementById('ctrlPaperWidth').value;
-  const fs = document.getElementById('ctrlFontSize').value;
-  const pad = document.getElementById('ctrlCellPad').value;
-
-  document.getElementById('lblPaperWidth').textContent = w + 'px';
-  document.getElementById('lblFontSize').textContent = fs + 'px';
-  document.getElementById('lblCellPad').textContent = pad + 'px';
-
-  const paper = document.getElementById('studioPaper');
-  paper.style.width = w + 'px';
-  paper.style.minWidth = w + 'px';
-
-  document.documentElement.style.setProperty('--pdf-font-size', fs + 'px');
-  document.documentElement.style.setProperty('--pdf-cell-pad-v', pad + 'px');
-}
-
-function applyStudioZoom() {
-  const z = document.getElementById('ctrlPreviewZoom').value;
-  document.getElementById('lblPreviewZoom').textContent = Math.round(z * 100) + '%';
-  document.getElementById('studioScaler').style.transform = `scale(${z})`;
-}
-
-async function exportFinalPDF() {
-  const dateStr = document.getElementById('workDate').value;
-  const orient = document.getElementById('ctrlOrientation').value;
-  const targetWidth = Number(document.getElementById('ctrlPaperWidth').value) || 1100;
-  const studioPaper = document.getElementById('studioPaper');
-  const scaler = document.getElementById('studioScaler');
-  const viewport = document.getElementById('studioViewport');
-
-  if (typeof html2pdf === 'undefined') {
-    showToast('⚠️ مكتبة الـ PDF غير محملة بعد');
-    return;
-  }
-
-  const overlay = document.getElementById('captureOverlay');
-  overlay.classList.remove('hidden');
-
-  const prevTransform = scaler.style.transform;
-  scaler.style.transform = 'none';
-  viewport.scrollTop = 0;
-  viewport.scrollLeft = 0;
-
-  await new Promise(r => setTimeout(r, 200));
-
-  const opt = {
-    margin: [3, 3, 3, 3],
-    filename: `Morbidity_Form_${dateStr}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: targetWidth + 30,
-      width: targetWidth
-    },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: orient },
-    pagebreak: { mode: ['css', 'legacy'] }
-  };
-
-  try {
-    // استخدام outputPdf('datauristring') لتجنب مشاكل Cordova FileReader مع الـ Blob نهائياً!
-    const pdfDataUri = await html2pdf().set(opt).from(studioPaper).outputPdf('datauristring');
-    scaler.style.transform = prevTransform;
-    overlay.classList.add('hidden');
-
-    const pureBase64 = pdfDataUri.includes(',') ? pdfDataUri.split(',')[1] : pdfDataUri;
-    await dispatchBase64File(pureBase64, `Morbidity_Form_${dateStr}.pdf`, 'application/pdf');
-  } catch (err) {
-    scaler.style.transform = prevTransform;
-    overlay.classList.add('hidden');
-    showToast('⚠️ حدث خطأ أثناء توليد الـ PDF: ' + (err.message || err));
-  }
-}
-
-// =========================================================================
-// 6. تصدير ملف الإكسل الاحترافي (مباشرة بصيغة Base64 متوافقة مع الـ APK)
-// =========================================================================
-async function exportExcelWorkbook() {
-  if (typeof XLSX === 'undefined') { showToast('⚠️ مكتبة الإكسل غير جاهزة'); return; }
-  const cases = getScopedCases();
-  const dateStr = document.getElementById('workDate').value;
-  const wb = XLSX.utils.book_new();
-
-  const logRows = [['Serial #', 'Date', 'Day', 'Time', 'Gender', 'Age Group', 'Case Type', 'Special Group', 'Diagnosis #', 'Diagnosis Name']];
-  cases.forEach(c => logRows.push([c.serial, c.date, c.dayName, c.time, c.gender, c.ageGroup, c.caseType, c.specialGroup, c.diagId, c.diagName]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(logRows), 'Daily Cases Log');
-
-  const sumRows = [
-    ['OFFICIAL FACILITY & REPORT INFORMATION'],
-    ['Governorate', facilityProfile.gov || '-', 'District', facilityProfile.dist || '-', 'Health Facility', facilityProfile.name || '-', 'Organization', facilityProfile.org || '-'],
-    ['Prepared By', facilityProfile.reporter || '-', 'Job Title', facilityProfile.title || '-', 'Report Date', dateStr, 'Total Cases', cases.length],
-    [],
-    ['1. NEW BENEFICIARIES & FOLLOW UP SUMMARY'],
-    ['Gender', ...AGE_LABELS_SHORT.map(a => 'New ' + a), 'Total New', ...AGE_LABELS_SHORT.map(a => 'FollowUp ' + a), 'Total FollowUp', 'Grand Total']
-  ];
-  ['Female', 'Male'].forEach(g => {
-    const checkGender = g === 'Female' ? isFemaleCase : isMaleCase;
-    const newArr = AGE_GROUPS.map(ag => cases.filter(c => checkGender(c) && c.caseType === 'New' && c.ageGroup === ag).length);
-    const folArr = AGE_GROUPS.map(ag => cases.filter(c => checkGender(c) && c.caseType === 'Follow up' && c.ageGroup === ag).length);
-    const nSum = newArr.reduce((a,b)=>a+b,0), fSum = folArr.reduce((a,b)=>a+b,0);
-    sumRows.push([g === 'Female' ? 'F' : 'M', ...newArr, nSum, ...folArr, fSum, nSum + fSum]);
-  });
-  sumRows.push([], ['2. SPECIAL GROUPS SUMMARY (0-18 Y & >= 18 Y)'], ['Special Group', '0-18Y (F)', '0-18Y (M)', '>=18Y (F)', '>=18Y (M)', 'Total']);
-  SPECIAL_GROUPS.forEach(sg => {
-    const u18F = cases.filter(c => c.specialGroup === sg && UNDER_18_AGES.includes(c.ageGroup) && isFemaleCase(c)).length;
-    const u18M = cases.filter(c => c.specialGroup === sg && UNDER_18_AGES.includes(c.ageGroup) && isMaleCase(c)).length;
-    const o18F = cases.filter(c => c.specialGroup === sg && OVER_18_AGES.includes(c.ageGroup) && isFemaleCase(c)).length;
-    const o18M = cases.filter(c => c.specialGroup === sg && OVER_18_AGES.includes(c.ageGroup) && isMaleCase(c)).length;
-    sumRows.push([sg, u18F, u18M, o18F, o18M, u18F + u18M + o18F + o18M]);
-  });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sumRows), 'Summary Tables');
-
-  const matHeader = ['#', 'Diagnosis'];
-  AGE_LABELS_SHORT.forEach(a => matHeader.push(`New ${a} (F)`, `New ${a} (M)`));
-  AGE_LABELS_SHORT.forEach(a => matHeader.push(`FollowUp ${a} (F)`, `FollowUp ${a} (M)`));
-  matHeader.push('Total F', 'Total M', 'Total ALL');
-  SPECIAL_GROUPS.forEach(sg => matHeader.push(`${sg} (F)`, `${sg} (M)`));
-
-  const matRows = [matHeader];
-  DIAGNOSES.forEach(d => {
-    const dCases = cases.filter(c => Number(c.diagId) === d.id);
-    const r = [d.id, d.name];
-    AGE_GROUPS.forEach(ag => {
-      r.push(dCases.filter(c => c.caseType === 'New' && c.ageGroup === ag && isFemaleCase(c)).length);
-      r.push(dCases.filter(c => c.caseType === 'New' && c.ageGroup === ag && isMaleCase(c)).length);
-    });
-    AGE_GROUPS.forEach(ag => {
-      r.push(dCases.filter(c => c.caseType === 'Follow up' && c.ageGroup === ag && isFemaleCase(c)).length);
-      r.push(dCases.filter(c => c.caseType === 'Follow up' && c.ageGroup === ag && isMaleCase(c)).length);
-    });
-    const tf = dCases.filter(isFemaleCase).length;
-    const tm = dCases.filter(isMaleCase).length;
-    r.push(tf, tm, tf + tm);
-    SPECIAL_GROUPS.forEach(sg => {
-      r.push(dCases.filter(c => c.specialGroup === sg && isFemaleCase(c)).length);
-      r.push(dCases.filter(c => c.specialGroup === sg && isMaleCase(c)).length);
-    });
-    matRows.push(r);
-  });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(matRows), 'Morbidity Form 1-55');
-
-  // توليد Base64 مباشرة من مكتبة XLSX بدون FileReader!
-  const pureBase64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-  await dispatchBase64File(pureBase64, `Morbidity_Report_${dateStr}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-}
-
-// =========================================================================
-// 7. مركز النسخ الاحتياطي والاستعادة الشامل
-// =========================================================================
-function openBackupModal() {
-  document.getElementById('modalTotalCases').textContent = allCases.length;
-  document.getElementById('backupPasteArea').value = '';
-  document.getElementById('backupModal').classList.remove('hidden');
-}
-
-function closeBackupModal() {
-  document.getElementById('backupModal').classList.add('hidden');
-}
-
-function utf8ToBase64(str) {
-  return btoa(unescape(encodeURIComponent(str)));
-}
-
-async function exportBackupFile() {
-  const dateStr = document.getElementById('workDate').value;
-  const payload = JSON.stringify({ facility: facilityProfile, cases: allCases }, null, 2);
-  const pureBase64 = utf8ToBase64(payload);
-  await dispatchBase64File(pureBase64, `Morbidity_Backup_${dateStr}.json`, 'application/json');
-}
-
-function copyBackupToClipboard() {
-  const jsonStr = JSON.stringify(allCases);
-  document.getElementById('backupPasteArea').value = jsonStr;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(jsonStr).then(() => {
-      showToast('📋 تم نسخ كود البيانات للحافظة ووضعه في المربع!');
-    }).catch(() => {
-      showToast('📋 تم إظهار الكود في المربع، يمكنك تحديده ونسخه');
-    });
-  } else {
-    showToast('📋 تم إظهار الكود في المربع، يمكنك تحديده ونسخه');
-  }
-}
-
-function commitRestoredRecords(rawArray) {
-  if (!Array.isArray(rawArray) || rawArray.length === 0) {
-    showToast('⚠️ لم يتم العثور على سجلات حالات صالحة داخل الملف');
-    return;
-  }
-  const validRecords = rawArray.map((r, i) => normalizeRecord(r, i)).filter(Boolean);
-  if (validRecords.length === 0) {
-    showToast('⚠️ تنسيق البيانات داخل الملف غير معروف');
-    return;
-  }
-
-  const modeEl = document.querySelector('input[name="restoreMode"]:checked');
-  const mode = modeEl ? modeEl.value : 'merge';
-
-  if (mode === 'replace') {
-    allCases = validRecords;
-  } else {
-    const existingKeys = new Set(allCases.map(c => `${c.date}_${c.time}_${c.gender}_${c.ageGroup}_${c.diagId}_${c.serial}`));
-    validRecords.forEach(item => {
-      const key = `${item.date}_${item.time}_${item.gender}_${item.ageGroup}_${item.diagId}_${item.serial}`;
-      if (!existingKeys.has(key)) {
-        allCases.push(item);
-        existingKeys.add(key);
-      }
-    });
-  }
-
-  recalculateDailySerials();
-  saveToStorage();
-
-  const uniqueDates = [...new Set(allCases.map(c => c.date))];
-  if (uniqueDates.length === 1) {
-    document.getElementById('workDate').value = uniqueDates[0];
-    onScopeChange('day');
-  } else if (allCases.length > 0) {
-    document.getElementById('workDate').value = allCases[allCases.length - 1].date;
-    onScopeChange('all');
-  }
-
-  onDateChange();
-  renderQuickPicks();
-  closeBackupModal();
-  const fCount = allCases.filter(isFemaleCase).length;
-  const mCount = allCases.filter(isMaleCase).length;
-  showToast(`✅ تمت الاستعادة! الإجمالي: ${allCases.length} (إناث: ${fCount} | ذكور: ${mCount})`);
-}
-
-function parseSmartJsonText(rawText) {
-  let clean = String(rawText || '').replace(/^\uFEFF/, '').trim();
-  if (!clean) return null;
-  try {
-    const parsed = JSON.parse(clean);
-    if (Array.isArray(parsed)) return parsed;
-    if (parsed && typeof parsed === 'object') {
-      if (parsed.facility) {
-        facilityProfile = { ...facilityProfile, ...parsed.facility };
-        try { localStorage.setItem(FACILITY_KEY, JSON.stringify(facilityProfile)); } catch(e){}
-      }
-      return parsed.cases || parsed.records || parsed.data || parsed.allCases || null;
-    }
-  } catch (e) {
-    const firstBracket = clean.indexOf('[');
-    const lastBracket = clean.lastIndexOf(']');
-    if (firstBracket !== -1 && lastBracket > firstBracket) {
-      try {
-        return JSON.parse(clean.slice(firstBracket, lastBracket + 1));
-      } catch (err) {}
-    }
-  }
-  return null;
-}
-
-function handleUniversalFileRestore(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const fileName = file.name.toLowerCase();
-
-  // استخدام FileReader الأصلي للمتصفح لتفادي تعارض Cordova FileReader
-  const NativeReader = window.FileReader.REAL_READER || window.FileReader;
-  const reader = new NativeReader();
-
-  if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
-    reader.onload = ev => {
-      try {
-        const data = new Uint8Array(ev.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(firstSheet);
-        commitRestoredRecords(rows);
-      } catch (err) {
-        showToast('⚠️ تعذر قراءة ملف الإكسل');
-      }
-      e.target.value = '';
-    };
-    reader.readAsArrayBuffer(file);
-    return;
-  }
-
-  reader.onload = ev => {
-    const arr = parseSmartJsonText(ev.target.result);
-    if (arr) {
-      commitRestoredRecords(arr);
-    } else {
-      showToast('⚠️ لم يتم التعرف على محتوى الملف، تأكد أنه ملف نسخة احتياطية JSON أو Excel');
-    }
-    e.target.value = '';
-  };
-  reader.readAsText(file);
-}
-
-function restoreFromPastedText() {
-  const txt = document.getElementById('backupPasteArea').value;
-  const arr = parseSmartJsonText(txt);
-  if (arr) {
-    commitRestoredRecords(arr);
-  } else {
-    showToast('⚠️ النص الملصق غير صالح');
-  }
-}
-
-window.addEventListener('DOMContentLoaded', initApp);
+window.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
 </html>
