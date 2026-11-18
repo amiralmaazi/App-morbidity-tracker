@@ -16,49 +16,58 @@ jobs:
       - name: 1. Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 2. Setup Node.js 22
+      - name: 2. Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
 
       - name: 3. Setup Java JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 4. Accept Pre-installed Android Licenses
+      - name: 4. Accept Android SDK Licenses & Build Tools
         run: |
           yes | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: 5. Create App, Set Custom Icon & Bundle Offline Libraries
+      - name: 5. Create Cordova App & Patch AndroidX Plugins
         run: |
           npm install -g cordova
           cordova create app com.clinic.morbidity "MorbidityTracker"
-          
+
           cp index.html app/www/index.html
-          
-          # تفعيل AndroidX وصلاحيات مشاركة الملفات
+
+          # تفعيل AndroidX وصلاحيات الملفات
           sed -i 's|</widget>|    <preference name="AndroidXEnabled" value="true" />\n    <preference name="AndroidInsecureFileModeEnabled" value="true" />\n</widget>|g' app/config.xml
 
-          # فحص وتحويل أيقونة التطبيق تلقائياً لمقاس قياسي 512x512 بصيغة PNG لمنع فشل البناء
+          # تحجيم واعتماد الأيقونة المخصصة icon.png إن وجدت
           if [ -f "icon.png" ]; then
             sudo apt-get update && sudo apt-get install -y imagemagick
             convert icon.png -resize 512x512\! app/icon.png || cp icon.png app/icon.png
             sed -i 's|</widget>|    <icon src="icon.png" />\n</widget>|g' app/config.xml
           fi
 
+          # تحميل المكتبات للعمل بدون إنترنت نهائياً داخل الـ APK
           mkdir -p app/www/lib
-          curl -sL https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js -o app/www/lib/xlsx.full.min.js
+          curl -sL https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js -o app/www/lib/xlsx.full.min.js
           curl -sL https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js -o app/www/lib/html2pdf.bundle.min.js
+          sed -i 's|https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js|lib/xlsx.full.min.js|g' app/www/index.html
+          sed -i 's|https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js|lib/html2pdf.bundle.min.js|g' app/www/index.html
 
           cd app
+          cordova platform add android@13.0.0
           cordova plugin add cordova-plugin-x-socialsharing
+          cordova plugin add cordova-plugin-androidx-adapter
+
+          # تصحيح مسار FileProvider القديم في بلجن المشاركة لمنع خطأ Exit Code 1
+          find platforms/android plugins -name "*.java" -exec sed -i 's/android\.support\.v4\.content\.FileProvider/androidx.core.content.FileProvider/g' {} + || true
+          find platforms/android plugins -name "*.java" -exec sed -i 's/android\.support\.v4\.app\.ActivityCompat/androidx.core.app.ActivityCompat/g' {} + || true
 
       - name: 6. Build Android APK
         run: |
           cd app
-          cordova platform add android@13.0.0
           cordova build android --debug
           cp platforms/android/app/build/outputs/apk/debug/app-debug.apk ../MorbidityTracker.apk
 
