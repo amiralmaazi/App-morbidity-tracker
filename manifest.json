@@ -1,14 +1,15 @@
 {
-  "name": "Daily Morbidity Tracker",
-  "short_name": "MorbidityApp",
+  "name": "ECHO 23028 Morbidity & IMCI Tracker Pro",
+  "short_name": "MorbidityPro",
+  "description": "Official Daily, Weekly (W1-W5) & Monthly Morbidity, IMCI, Referrals & eDEWS Reporting System",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f1f5f9",
   "theme_color": "#0f766e",
-  "orientation": "portrait",
+  "orientation": "any",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3063/3063176.png",
+      "src": "icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
