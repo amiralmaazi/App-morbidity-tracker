@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build ECHO Morbidity APK
 
 on:
   push:
@@ -16,13 +16,13 @@ jobs:
       - name: 1. Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 2. Setup Node.js 20
+      - name: 2. Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: 3. Setup Java JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -32,24 +32,25 @@ jobs:
           yes | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --licenses || true
           ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: 5. Create Cordova App & Patch AndroidX Plugins
+      - name: 5. Create Cordova App, Copy Modules & Patch AndroidX
         run: |
           npm install -g cordova
-          cordova create app com.clinic.morbidity "MorbidityTracker"
+          cordova create app com.echo.morbiditypro "MorbidityPro"
 
-          cp index.html app/www/index.html
+          cp index.html styles.css data.js app.js manifest.json app/www/
+          [ -f "sw.js" ] && cp sw.js app/www/ || true
 
-          # تفعيل AndroidX وصلاحيات الملفات
+          # Enable AndroidX & File Sharing for Android 11-14
           sed -i 's|</widget>|    <preference name="AndroidXEnabled" value="true" />\n    <preference name="AndroidInsecureFileModeEnabled" value="true" />\n</widget>|g' app/config.xml
 
-          # تحجيم واعتماد الأيقونة المخصصة icon.png إن وجدت
+          # Custom App Icon if icon.png exists
           if [ -f "icon.png" ]; then
             sudo apt-get update && sudo apt-get install -y imagemagick
             convert icon.png -resize 512x512\! app/icon.png || cp icon.png app/icon.png
             sed -i 's|</widget>|    <icon src="icon.png" />\n</widget>|g' app/config.xml
           fi
 
-          # تحميل المكتبات للعمل بدون إنترنت نهائياً داخل الـ APK
+          # Bundle offline XLSX & html2pdf libraries inside APK
           mkdir -p app/www/lib
           curl -sL https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js -o app/www/lib/xlsx.full.min.js
           curl -sL https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js -o app/www/lib/html2pdf.bundle.min.js
@@ -61,7 +62,7 @@ jobs:
           cordova plugin add cordova-plugin-x-socialsharing
           cordova plugin add cordova-plugin-androidx-adapter
 
-          # تصحيح مسار FileProvider القديم في بلجن المشاركة لمنع خطأ Exit Code 1
+          # Patch legacy android.support imports to AndroidX to prevent Exit Code 1
           find platforms/android plugins -name "*.java" -exec sed -i 's/android\.support\.v4\.content\.FileProvider/androidx.core.content.FileProvider/g' {} + || true
           find platforms/android plugins -name "*.java" -exec sed -i 's/android\.support\.v4\.app\.ActivityCompat/androidx.core.app.ActivityCompat/g' {} + || true
 
@@ -69,10 +70,10 @@ jobs:
         run: |
           cd app
           cordova build android --debug
-          cp platforms/android/app/build/outputs/apk/debug/app-debug.apk ../MorbidityTracker.apk
+          cp platforms/android/app/build/outputs/apk/debug/app-debug.apk ../MorbidityPro-ECHO23028.apk
 
       - name: 7. Upload Ready APK
         uses: actions/upload-artifact@v4
         with:
-          name: MorbidityTracker-APK
-          path: MorbidityTracker.apk
+          name: MorbidityPro-ECHO23028-APK
+          path: MorbidityPro-ECHO23028.apk
