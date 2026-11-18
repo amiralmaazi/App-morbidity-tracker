@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f766e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ECHO 23028 Morbidity & IMCI Tracker Pro</title>
+<title>ECHO 23028 Morbidity &amp; IMCI Tracker Pro</title>
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="styles.css">
 
@@ -16,6 +16,7 @@
 <!-- مكتبات التصدير عبر سيرفر cdnjs المفتوح عالمياً (وتُدمج أوفلاين داخل الـ APK) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -24,7 +25,7 @@
 
 <div id="captureOverlay" class="capture-overlay hidden">
   <div style="font-size:36px;">⚙️</div>
-  <div id="captureStatusText">جاري تجهيز وتوليد ملف الـ PDF الرسمي بدقة عالية...</div>
+  <div id="captureStatusText">جاري تجهيز وتوليد الملف الرسمي بدقة عالية...</div>
 </div>
 
 <!-- نافذة إعدادات المنشأة الصحية (مرتبطة بصفحة list الـ 19 مرفقاً) -->
@@ -129,7 +130,7 @@
 <header class="app-header">
   <div class="header-top">
     <div class="brand-wrap">
-      <h1 class="app-title">🏥 ECHO 23028 Morbidity & IMCI Pro</h1>
+      <h1 class="app-title">🏥 ECHO 23028 Morbidity &amp; IMCI Pro</h1>
       <span id="activeFacilityPill" class="facility-pill" onclick="openModal('facilityModal')">اختر المرفق الصحي ⚙️</span>
     </div>
     <div class="badges-wrap">
@@ -384,7 +385,10 @@
   </section>
 </main>
 
+<!-- ربط وحدات التطبيق ومحرك تصدير قالب ECHO 23028 الرسمي -->
 <script src="data.js"></script>
+<script src="template-b64.js"></script>
+<script src="excel-exporter.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
