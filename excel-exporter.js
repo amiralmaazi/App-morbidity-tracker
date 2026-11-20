@@ -227,6 +227,32 @@ function daysBetweenISO(d1, d2) {
   return isoDateToExcelSerial(d2) - isoDateToExcelSerial(d1);
 }
 
+// Reporting cycle: 26th of previous month -> 25th of target month (e.g. 2026-11 = 2026-10-26 to 2026-11-25)
+function getReportingMonthBounds(monthYYYYMM) {
+  const [yr, mo] = String(monthYYYYMM || '').split('-').map(Number);
+  const py = mo === 1 ? yr - 1 : yr;
+  const pm = mo === 1 ? 12 : mo - 1;
+  const startISO = `${py}-${String(pm).padStart(2, '0')}-26`;
+  const endISO = `${yr}-${String(mo).padStart(2, '0')}-25`;
+  return { startISO, endISO };
+}
+
+function getReportingMonthForDate(dateStr) {
+  const [yr, mo, dy] = String(dateStr || '').split('-').map(Number);
+  if (!yr || !mo || !dy) return new Date().toISOString().slice(0, 7);
+  if (dy >= 26) {
+    const ny = mo === 12 ? yr + 1 : yr;
+    const nm = mo === 12 ? 1 : mo + 1;
+    return `${ny}-${String(nm).padStart(2, '0')}`;
+  }
+  return `${yr}-${String(mo).padStart(2, '0')}`;
+}
+
+function excelWeekday(isoDateStr) {
+  const [y, m, d] = isoDateStr.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 1; // Sun=1..Sat=7
+}
+
 async function resolveSheetPaths(zip) {
   const wbXml = await zip.file('xl/workbook.xml').async('string');
   const relsXml = await zip.file('xl/_rels/workbook.xml.rels').async('string');
@@ -753,12 +779,14 @@ function populateMonthlyOpsMap(ops, mSum, weekStartDates, siteName, doctorName, 
   const wLastD3 = addDaysISO(weekStartDates[lastIdx], 2);
   const af80Date = Number(w1d3.slice(8, 10)) > 25 ? w1d3 : w2d3;
   const ag80Date = Number(wLastD3.slice(8, 10)) > 25 ? wPrevD3 : wLastD3;
+  const af80Minus2 = addDaysISO(af80Date, -2);
+  const af81Val = Math.floor((excelWeekday(af80Minus2) + daysBetweenISO(af80Date, ag80Date)) / 7);
   ops['AF80'] = { kind: 'formulaCache', val: isoDateToExcelSerial(af80Date), isStr: false };
   ops['AG80'] = { kind: 'formulaCache', val: isoDateToExcelSerial(ag80Date), isStr: false };
-  ops['AF81'] = { kind: 'formulaCache', val: Math.min(4, weekStartDates.length) };
+  ops['AF81'] = { kind: 'formulaCache', val: Math.max(1, af81Val) };
 
   ops['I90'] = { kind: 'formulaCache', val: mSum.totalEdewsDaily };
-  ops['Q90'] = { kind: 'formulaCache', val: Math.min(weekStartDates.length, mSum.totalEdewsWeekly) };
+  ops['Q90'] = { kind: 'formulaCache', val: Math.min(Math.max(1, af81Val), mSum.totalEdewsWeekly) };
 
   const imciCols = [4, 6, 8, 10];
   for (let i = 0; i < 4; i++) {
@@ -798,20 +826,27 @@ async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standalone
     throw new Error('القالب المرفوع لا يحتوي على أوراق الأسابيع W1..W5');
   }
 
-  const monthStr = targetMonthYYYYMM || new Date().toISOString().slice(0, 7);
+  const monthStr = targetMonthYYYYMM || getReportingMonthForDate(new Date().toISOString().slice(0, 10));
   const [yr, mo] = monthStr.split('-').map(Number);
-  const daysInMonth = new Date(Date.UTC(yr, mo, 0)).getUTCDate();
+  const { startISO: cycleStartISO, endISO: cycleEndISO } = getReportingMonthBounds(monthStr);
 
   const siteName = facilityObj.shortName || 'Almaqayit HU';
   const doctorName = facilityObj.doctor || 'Dr.';
 
-  const monthCases = allCasesArr.filter(c => String(c.date || '').startsWith(monthStr));
+  // Filter strictly by Reporting Month Cycle: 26th of previous month -> 25th of target month
+  const monthCases = allCasesArr.filter(c => {
+    const ds = String(c.date || '').slice(0, 10);
+    return ds >= cycleStartISO && ds <= cycleEndISO;
+  });
   const monthRefs = [
     ...monthCases.filter(c => c.referral).map(c => ({
       date: c.date, type: c.referral.type, gender: c.gender,
       ageGroup: c.ageGroup, cash: c.referral.cash, comment: c.referral.comment
     })),
-    ...standaloneRefsArr.filter(r => String(r.date || '').startsWith(monthStr))
+    ...standaloneRefsArr.filter(r => {
+      const ds = String(r.date || '').slice(0, 10);
+      return ds >= cycleStartISO && ds <= cycleEndISO;
+    })
   ];
 
   const weeklySummaries = [];
@@ -819,25 +854,15 @@ async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standalone
   const numWeeks = weekNames.length;
 
   for (let w = 0; w < numWeeks; w++) {
-    const startDay = w * 7 + 1;
+    // Fixed official week start: W1 = 26th prev month, W2 = +7d, W3 = +14d, W4 = +21d, W5 = +28d
+    const weekStartISO = addDaysISO(cycleStartISO, w * 7);
     const isLastWeek = (w === numWeeks - 1);
-    const endDay = isLastWeek ? daysInMonth : Math.min(daysInMonth, startDay + 6);
-    const defaultStartISO = `${monthStr}-${String(Math.min(daysInMonth, startDay)).padStart(2, '0')}`;
+    const rawWeekEndISO = addDaysISO(weekStartISO, 6);
+    const weekEndISO = isLastWeek ? cycleEndISO : (rawWeekEndISO <= cycleEndISO ? rawWeekEndISO : cycleEndISO);
+    const isEmptyWeek = weekStartISO > cycleEndISO;
 
-    const wkCases = monthCases.filter(c => {
-      const d = Number(c.date.slice(8, 10));
-      return d >= startDay && d <= endDay;
-    });
-    const wkRefs = monthRefs.filter(r => {
-      const d = Number(r.date.slice(8, 10));
-      return d >= startDay && d <= endDay;
-    });
-
-    let weekStartISO = defaultStartISO;
-    const activeDates = [...new Set([...wkCases.map(c => c.date), ...wkRefs.map(r => r.date)])].sort();
-    if (activeDates.length > 0 && daysBetweenISO(activeDates[0], activeDates[activeDates.length - 1]) <= 4) {
-      weekStartISO = activeDates[0];
-    }
+    const wkCases = isEmptyWeek ? [] : monthCases.filter(c => c.date >= weekStartISO && c.date <= weekEndISO);
+    const wkRefs = isEmptyWeek ? [] : monthRefs.filter(r => r.date >= weekStartISO && r.date <= weekEndISO);
     weekStartDates.push(weekStartISO);
 
     const dayBuckets = [];
@@ -847,6 +872,7 @@ async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standalone
       const slotDate = addDaysISO(weekStartISO, k);
       const isLastSlot = (k === 4);
       const matchSlot = (dStr) => {
+        if (isEmptyWeek) return false;
         const diff = daysBetweenISO(weekStartISO, dStr);
         return isLastSlot ? (diff >= 4) : (diff === k);
       };
@@ -855,9 +881,8 @@ async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standalone
       const dRefs = wkRefs.filter(r => matchSlot(c.date));
       const dOps = { triageF: 0, triageM: 0, ghoF: 0, ghoM: 0 };
       Object.entries(dailyOpsObj || {}).forEach(([dStr, v]) => {
-        if (!dStr.startsWith(monthStr)) return;
-        const dd = Number(dStr.slice(8, 10));
-        if (dd >= startDay && dd <= endDay && matchSlot(dStr)) {
+        if (isEmptyWeek) return;
+        if (dStr >= weekStartISO && dStr <= weekEndISO && matchSlot(dStr)) {
           dOps.triageF += Number(v.triageF) || 0;
           dOps.triageM += Number(v.triageM) || 0;
           dOps.ghoF += Number(v.ghoF) || 0;
