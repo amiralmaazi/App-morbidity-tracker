@@ -1,6 +1,11 @@
 // ============================================================================
-// ECHO 23028 Exact-Template Excel Exporter (100% Preserves All 8 Sheets,
-// Colors, Borders, Fonts, Logos, Merged Cells, Printer Settings & Formulas)
+// ECHO 23028 Dynamic Exact-Template Excel Exporter
+// Supports:
+//   1) User-uploaded .xlsx template saved permanently offline in IndexedDB
+//   2) Optional bundled ./template.xlsx in repo/APK
+//   3) Legacy window.ECHO_TEMPLATE_XLSX_B64 fallback
+// Preserves 100% of Colors, Borders, Fonts, Logos, Merged Cells, Printer
+// Settings & Official Formulas across W1..W5 (or W1..W4) + Monthly!
 // ============================================================================
 
 const ECHO_DIAG_ROWS = [
@@ -31,6 +36,146 @@ const ECHO_DRUG_COLS = {
   magnesium_sulfate: 33   // AG
 };
 
+// -------------------- IndexedDB Template Storage --------------------
+function openEchoTemplateDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ECHO23028_DB', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('store')) db.createObjectStore('store');
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error || new Error('IndexedDB Error'));
+  });
+}
+
+async function saveUploadedTemplateToIDB(meta, uint8Bytes) {
+  const db = await openEchoTemplateDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('store', 'readwrite');
+    const st = tx.objectStore('store');
+    st.put(meta, 'official_template_meta');
+    st.put(uint8Bytes, 'official_template_bytes');
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = e => reject(e.target.error || new Error('Failed to save template'));
+  });
+}
+
+async function loadUploadedTemplateFromIDB() {
+  try {
+    const db = await openEchoTemplateDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction('store', 'readonly');
+      const st = tx.objectStore('store');
+      const rMeta = st.get('official_template_meta');
+      const rBytes = st.get('official_template_bytes');
+      tx.oncomplete = () => {
+        if (rBytes.result) {
+          resolve({ meta: rMeta.result || {}, bytes: rBytes.result });
+        } else {
+          resolve(null);
+        }
+      };
+      tx.onerror = e => reject(e.target.error);
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
+async function clearUploadedTemplateFromIDB() {
+  const db = await openEchoTemplateDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('store', 'readwrite');
+    const st = tx.objectStore('store');
+    st.delete('official_template_meta');
+    st.delete('official_template_bytes');
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = e => reject(e.target.error);
+  });
+}
+
+// Inspect any .xlsx bytes using JSZip to verify sheet structure
+async function inspectEchoTemplateBytes(uint8Bytes) {
+  if (typeof JSZip === 'undefined') throw new Error('مكتبة JSZip غير محمّلة');
+  const zip = await JSZip.loadAsync(uint8Bytes);
+  if (!zip.file('xl/workbook.xml') || !zip.file('xl/_rels/workbook.xml.rels')) {
+    throw new Error('الملف المختار ليس ملف Excel (.xlsx) صالحاً');
+  }
+  const sheetPaths = await resolveSheetPaths(zip);
+  const sheetNames = Object.keys(sheetPaths);
+  const weekSheets = ['W1', 'W2', 'W3', 'W4', 'W5'].filter(w => sheetPaths[w]);
+  const hasMonthly = Boolean(sheetPaths['Monthly']);
+  if (weekSheets.length === 0 && !hasMonthly) {
+    throw new Error('هذا الملف لا يحتوي على أوراق التقرير الرسمي (W1..W5 أو Monthly)');
+  }
+  return { sheetNames, weekSheets, hasMonthly, sheetPaths };
+}
+
+// Load bundled ./template.xlsx via Fetch OR XMLHttpRequest (supports Web, GitHub Pages & Cordova file:// APK)
+async function loadBundledTemplateXlsx() {
+  // 1) Try Fetch API (works on HTTPS / GitHub Pages / Cordova https://localhost)
+  try {
+    const res = await fetch('./template.xlsx', { cache: 'no-cache' });
+    if (res && res.ok) {
+      const buf = await res.arrayBuffer();
+      if (buf && buf.byteLength > 1000) return new Uint8Array(buf);
+    }
+  } catch (e) {}
+
+  // 2) Fallback to XMLHttpRequest (required for Cordova Android file:///android_asset/www/ mode)
+  return await new Promise(resolve => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', './template.xlsx', true);
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = () => {
+        if ((xhr.status === 200 || xhr.status === 0) && xhr.response && xhr.response.byteLength > 1000) {
+          resolve(new Uint8Array(xhr.response));
+        } else {
+          resolve(null);
+        }
+      };
+      xhr.onerror = () => resolve(null);
+      xhr.send();
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+// Resolve active template bytes in priority order:
+// 1. User-uploaded template in IndexedDB
+// 2. Bundled ./template.xlsx in GitHub repo / Android APK
+// 3. Legacy window.ECHO_TEMPLATE_XLSX_B64
+async function resolveTemplateSource() {
+  const saved = await loadUploadedTemplateFromIDB();
+  if (saved && saved.bytes) {
+    return { source: 'uploaded', bytes: saved.bytes, meta: saved.meta };
+  }
+
+  const bundledBytes = await loadBundledTemplateXlsx();
+  if (bundledBytes) {
+    let sheets = [];
+    try {
+      const info = await inspectEchoTemplateBytes(bundledBytes);
+      sheets = info.sheetNames || [];
+    } catch (e) {}
+    return {
+      source: 'bundled',
+      bytes: bundledBytes,
+      meta: { name: 'template.xlsx', size: bundledBytes.byteLength, sheets }
+    };
+  }
+
+  if (window.ECHO_TEMPLATE_XLSX_B64) {
+    return { source: 'b64', b64: window.ECHO_TEMPLATE_XLSX_B64, meta: { name: 'Embedded Template' } };
+  }
+
+  return null;
+}
+
+// -------------------- XML & Date Helpers --------------------
 function colNumToLet(n) {
   let s = '';
   while (n > 0) {
@@ -82,7 +227,37 @@ function daysBetweenISO(d1, d2) {
   return isoDateToExcelSerial(d2) - isoDateToExcelSerial(d1);
 }
 
-// Single-pass safe OOXML cell patcher (uses [^>/]* so self-closing /> tags are never broken)
+async function resolveSheetPaths(zip) {
+  const wbXml = await zip.file('xl/workbook.xml').async('string');
+  const relsXml = await zip.file('xl/_rels/workbook.xml.rels').async('string');
+
+  const relMap = {};
+  const relRe = /<Relationship\s+([^>]+?)\/>/g;
+  let rm;
+  while ((rm = relRe.exec(relsXml)) !== null) {
+    const idM = rm[1].match(/Id="([^"]+)"/);
+    const tgtM = rm[1].match(/Target="([^"]+)"/);
+    if (idM && tgtM) {
+      let target = tgtM[1].replace(/^\/+/, '');
+      if (!target.startsWith('xl/')) target = 'xl/' + target;
+      relMap[idM[1]] = target;
+    }
+  }
+
+  const sheetMap = {};
+  const shRe = /<sheet\s+([^>]+?)\/>/g;
+  let sm;
+  while ((sm = shRe.exec(wbXml)) !== null) {
+    const nameM = sm[1].match(/name="([^"]+)"/);
+    const ridM = sm[1].match(/r:id="([^"]+)"/);
+    if (nameM && ridM && relMap[ridM[1]]) {
+      sheetMap[nameM[1]] = relMap[ridM[1]];
+    }
+  }
+  return sheetMap;
+}
+
+// Single-pass safe OOXML cell patcher (preserves styles, borders, colors, shared & array formulas 100%)
 function patchWorksheetXml(xml, opsMap) {
   const matched = new Set();
 
@@ -111,7 +286,7 @@ function patchWorksheetXml(xml, opsMap) {
 
     if (op.kind === 'formulaCache') {
       const innerStr = inner || '';
-      const fMatch = innerStr.match(/<f(?:\s[^>]*)?>[\s\S]*?<\/f>|<f(?:\s[^>]*)?\/>/);
+      const fMatch = innerStr.match(/<f(?:\s[^>/]*)?\/>|<f(?:\s[^>/]*)?>[\s\S]*?<\/f>/);
       if (!fMatch) {
         if (op.isStr) {
           return op.val ? `<c r="${ref}"${cleanAttrs} t="inlineStr"><is><t xml:space="preserve">${escXml(op.val)}</t></is></c>` : `<c r="${ref}"${cleanAttrs}/>`;
@@ -128,7 +303,7 @@ function patchWorksheetXml(xml, opsMap) {
     return full;
   });
 
-  // Insert any cell not pre-existing in template XML (e.g. W2 AO88/AP88/AQ88)
+  // Insert any cell not pre-existing in template XML
   const missingByRow = {};
   for (const [ref, op] of Object.entries(opsMap)) {
     if (matched.has(ref)) continue;
@@ -170,6 +345,7 @@ function patchWorksheetXml(xml, opsMap) {
   return out;
 }
 
+// -------------------- Data Bucketing & Aggregation --------------------
 function computeDayBucket(dayCases, dayRefs, dayOps) {
   const diagMat = {};
   DIAGNOSES.forEach(d => {
@@ -505,8 +681,9 @@ function populateWeeklySummaryOpsMap(ops, wkSum, startISO, endISO, siteName, doc
 
 function populateMonthlyOpsMap(ops, mSum, weekStartDates, siteName, doctorName, commentsObj) {
   const R = (c, r) => `${colNumToLet(c)}${r}`;
+  const midDate = weekStartDates[2] || weekStartDates[0];
   ops['C8'] = { kind: 'formulaCache', val: siteName, isStr: true };
-  ops['C9'] = { kind: 'formulaCache', val: isoDateToExcelSerial(weekStartDates[2]), isStr: false };
+  ops['C9'] = { kind: 'formulaCache', val: isoDateToExcelSerial(midDate), isStr: false };
   ops['C10'] = { kind: 'formulaCache', val: doctorName, isStr: true };
 
   ops['AF10'] = { kind: 'formulaCache', val: mSum.triageF };
@@ -569,8 +746,19 @@ function populateMonthlyOpsMap(ops, mSum, weekStartDates, siteName, doctorName, 
   });
   ops['AH87'] = { kind: 'formulaCache', val: mSum.drugsTot };
 
+  const w1d3 = addDaysISO(weekStartDates[0], 2);
+  const w2d3 = addDaysISO(weekStartDates[1] || weekStartDates[0], 2);
+  const lastIdx = weekStartDates.length - 1;
+  const wPrevD3 = addDaysISO(weekStartDates[Math.max(0, lastIdx - 1)], 2);
+  const wLastD3 = addDaysISO(weekStartDates[lastIdx], 2);
+  const af80Date = Number(w1d3.slice(8, 10)) > 25 ? w1d3 : w2d3;
+  const ag80Date = Number(wLastD3.slice(8, 10)) > 25 ? wPrevD3 : wLastD3;
+  ops['AF80'] = { kind: 'formulaCache', val: isoDateToExcelSerial(af80Date), isStr: false };
+  ops['AG80'] = { kind: 'formulaCache', val: isoDateToExcelSerial(ag80Date), isStr: false };
+  ops['AF81'] = { kind: 'formulaCache', val: Math.min(4, weekStartDates.length) };
+
   ops['I90'] = { kind: 'formulaCache', val: mSum.totalEdewsDaily };
-  ops['Q90'] = { kind: 'formulaCache', val: mSum.totalEdewsWeekly };
+  ops['Q90'] = { kind: 'formulaCache', val: Math.min(weekStartDates.length, mSum.totalEdewsWeekly) };
 
   const imciCols = [4, 6, 8, 10];
   for (let i = 0; i < 4; i++) {
@@ -589,11 +777,27 @@ function populateMonthlyOpsMap(ops, mSum, weekStartDates, siteName, doctorName, 
   ops['AB98'] = { kind: 'formulaCache', val: mSum.ghoF + mSum.ghoM };
 }
 
+// Main Export Entry Point: Loads uploaded/bundled template and fills W1..W5 + Monthly
 async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standaloneRefsArr, diagCommentsObj, facilityObj, targetMonthYYYYMM) {
-  if (typeof JSZip === 'undefined') throw new Error('JSZip غير محمّلة');
-  if (!window.ECHO_TEMPLATE_XLSX_B64) throw new Error('ملف القالب template-b64.js غير موجود');
+  if (typeof JSZip === 'undefined') throw new Error('مكتبة JSZip غير محمّلة');
 
-  const zip = await JSZip.loadAsync(window.ECHO_TEMPLATE_XLSX_B64, { base64: true });
+  const tpl = await resolveTemplateSource();
+  if (!tpl) {
+    const err = new Error('NO_TEMPLATE');
+    err.code = 'NO_TEMPLATE';
+    throw err;
+  }
+
+  const zip = tpl.bytes
+    ? await JSZip.loadAsync(tpl.bytes)
+    : await JSZip.loadAsync(tpl.b64, { base64: true });
+
+  const sheetPaths = await resolveSheetPaths(zip);
+  const weekNames = ['W1', 'W2', 'W3', 'W4', 'W5'].filter(w => sheetPaths[w]);
+  if (weekNames.length === 0) {
+    throw new Error('القالب المرفوع لا يحتوي على أوراق الأسابيع W1..W5');
+  }
+
   const monthStr = targetMonthYYYYMM || new Date().toISOString().slice(0, 7);
   const [yr, mo] = monthStr.split('-').map(Number);
   const daysInMonth = new Date(Date.UTC(yr, mo, 0)).getUTCDate();
@@ -612,10 +816,12 @@ async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standalone
 
   const weeklySummaries = [];
   const weekStartDates = [];
+  const numWeeks = weekNames.length;
 
-  for (let w = 0; w < 5; w++) {
+  for (let w = 0; w < numWeeks; w++) {
     const startDay = w * 7 + 1;
-    const endDay = Math.min(daysInMonth, startDay + 6);
+    const isLastWeek = (w === numWeeks - 1);
+    const endDay = isLastWeek ? daysInMonth : Math.min(daysInMonth, startDay + 6);
     const defaultStartISO = `${monthStr}-${String(Math.min(daysInMonth, startDay)).padStart(2, '0')}`;
 
     const wkCases = monthCases.filter(c => {
@@ -639,10 +845,10 @@ async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standalone
 
     for (let k = 0; k < 5; k++) {
       const slotDate = addDaysISO(weekStartISO, k);
-      const isLast = (k === 4);
+      const isLastSlot = (k === 4);
       const matchSlot = (dStr) => {
         const diff = daysBetweenISO(weekStartISO, dStr);
-        return isLast ? (diff >= 4) : (diff === k);
+        return isLastSlot ? (diff >= 4) : (diff === k);
       };
 
       const dCases = wkCases.filter(c => matchSlot(c.date));
@@ -668,24 +874,31 @@ async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standalone
     weeklySummaries.push(wkSum);
     populateWeeklySummaryOpsMap(sheetOps, wkSum, weekStartISO, addDaysISO(weekStartISO, 4), siteName, doctorName);
 
-    const sheetPath = `xl/worksheets/sheet${3 + w}.xml`;
+    const sheetPath = sheetPaths[weekNames[w]];
     const rawXml = await zip.file(sheetPath).async('string');
     zip.file(sheetPath, patchWorksheetXml(rawXml, sheetOps));
   }
 
-  const monthlySum = sumDayBuckets(weeklySummaries);
-  monthlySum.totalEdewsDaily = weeklySummaries.reduce((a, w) => a + w.edewsDaily, 0);
-  monthlySum.totalEdewsWeekly = weeklySummaries.reduce((a, w) => a + w.edewsWeekly, 0);
+  if (sheetPaths['Monthly']) {
+    const monthlySum = sumDayBuckets(weeklySummaries);
+    monthlySum.totalEdewsDaily = weeklySummaries.reduce((a, w) => a + w.edewsDaily, 0);
+    monthlySum.totalEdewsWeekly = weeklySummaries.reduce((a, w) => a + w.edewsWeekly, 0);
 
-  const monthlyOps = {};
-  populateMonthlyOpsMap(monthlyOps, monthlySum, weekStartDates, siteName, doctorName, diagCommentsObj || {});
-  const rawMonthlyXml = await zip.file('xl/worksheets/sheet8.xml').async('string');
-  zip.file('xl/worksheets/sheet8.xml', patchWorksheetXml(rawMonthlyXml, monthlyOps));
+    const monthlyOps = {};
+    populateMonthlyOpsMap(monthlyOps, monthlySum, weekStartDates, siteName, doctorName, diagCommentsObj || {});
+    const rawMonthlyXml = await zip.file(sheetPaths['Monthly']).async('string');
+    zip.file(sheetPaths['Monthly'], patchWorksheetXml(rawMonthlyXml, monthlyOps));
+  }
 
+  // Ensure full recalculation on open in Excel/WPS/LibreOffice
   let wbXml = await zip.file('xl/workbook.xml').async('string');
-  wbXml = wbXml.replace(/<calcPr([^>]*)\/>/, (m, attrs) =>
-    `<calcPr${attrs.replace(/\s+fullCalcOnLoad="[^"]*"/g, '')} fullCalcOnLoad="1"/>`
-  );
+  if (/<calcPr[^>]*\/>/.test(wbXml)) {
+    wbXml = wbXml.replace(/<calcPr([^>]*)\/>/, (m, attrs) =>
+      `<calcPr${attrs.replace(/\s+fullCalcOnLoad="[^"]*"/g, '')} fullCalcOnLoad="1"/>`
+    );
+  } else {
+    wbXml = wbXml.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
+  }
   zip.file('xl/workbook.xml', wbXml);
 
   if (zip.file('xl/calcChain.xml')) {
