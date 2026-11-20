@@ -1336,10 +1336,17 @@ function base64ToBlob(b64, type) {
 
 async function dispatchBase64File(pureBase64, filename, mimeType) {
   if (window.plugins && window.plugins.socialsharing) {
+    const safeName = String(filename || 'ECHO23028_File')
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'ECHO23028_File';
     window.plugins.socialsharing.shareWithOptions(
-      { message: filename, subject: filename, files: [`df:${filename};base64,${pureBase64}`], chooserTitle: 'حفظ في الجهاز أو مشاركة' },
+      { message: safeName, subject: safeName, files: [`df:${safeName};data:${mimeType};base64,${pureBase64}`], chooserTitle: 'حفظ في الجهاز أو مشاركة' },
       () => showToast('✅ تمت العملية بنجاح'),
-      () => window.plugins.socialsharing.share(null, filename, `data:${mimeType};base64,${pureBase64}`, null)
+      () => window.plugins.socialsharing.shareWithOptions(
+        { message: safeName, subject: safeName, files: [`df:${safeName};base64,${pureBase64}`], chooserTitle: 'حفظ في الجهاز أو مشاركة' },
+        () => showToast('✅ تمت العملية بنجاح'),
+        () => window.plugins.socialsharing.share(null, safeName, `data:${mimeType};base64,${pureBase64}`, null)
+      )
     );
     return;
   }
@@ -1623,11 +1630,22 @@ function openBackupModal() {
   openModal('backupModal');
 }
 
+function toSafeAsciiTag(str) {
+  const map = {
+    'أ':'A','إ':'I','آ':'A','ا':'a','ب':'b','ت':'t','ث':'th','ج':'j','ح':'h','خ':'kh',
+    'د':'d','ذ':'dh','ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z',
+    'ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k','ل':'l','م':'m','ن':'n','ه':'h','و':'w',
+    'ي':'y','ى':'a','ة':'h','ئ':'e','ؤ':'o'
+  };
+  const trans = String(str || '').split('').map(ch => map[ch] ?? ch).join('');
+  return trans.replace(/[^a-zA-Z0-9-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 20);
+}
+
 async function exportBackupJSON() {
   const scope = (document.getElementById('backupExportScope') && document.getElementById('backupExportScope').value) || 'all';
   const { tag, payload } = buildTeamExportPayload(scope);
-  const safeSender = getCurrentMemberName().replace(/[^\w\u0600-\u06FF-]+/g, '_').slice(0, 24) || 'Member';
-  const fname = `ECHO23028_Team_${safeSender}_${tag}.json`;
+  const senderTag = toSafeAsciiTag(getCurrentMemberName()) || getOrCreateDeviceId().slice(-6);
+  const fname = `ECHO23028_Team_${senderTag}_${tag}.json`;
   const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
   await dispatchBase64File(b64, fname, 'application/json');
 }
@@ -1656,7 +1674,15 @@ function mergeSingleSourceIntoState(parsed, sourceLabel, mode, keepFacility) {
   const srcDevId = (parsed && parsed.sender && parsed.sender.deviceId) || ('SRC_' + sourceLabel.replace(/\W+/g, '').slice(0, 12));
   const srcName = stats.sender;
 
-  const rawList = Array.isArray(parsed) ? parsed : (parsed.allCases || parsed.cases || parsed.records || []);
+  if (parsed && typeof parsed.snapshot === 'string') {
+    try { parsed = JSON.parse(parsed.snapshot); } catch (e) {}
+  }
+  const rawList = Array.isArray(parsed)
+    ? parsed
+    : (Array.isArray(parsed.allCases) ? parsed.allCases
+      : Array.isArray(parsed.cases) ? parsed.cases
+      : Array.isArray(parsed.records) ? parsed.records
+      : Array.isArray(parsed.data) ? parsed.data : []);
   const cleanCases = rawList.map((r, i) => normalizeRecord(r, i, srcDevId, srcName)).filter(Boolean);
 
   // بناء فهرس الحالات الحالية بالـ uid الفريد + مفتاح احتياطي للملفات القديمة جداً بدون uid
@@ -1789,7 +1815,172 @@ function mergeSingleSourceIntoState(parsed, sourceLabel, mode, keepFacility) {
   return stats;
 }
 
-function renderMergeReportUI(resultsList, mode) {
+function parseSmartBackupText(rawText) {
+  let txt = String(rawText || '').replace(/^\uFEFF/, '').replace(/\u0000/g, '').trim();
+  if (!txt) throw new Error('الملف فارغ');
+
+  // محاولة فك Base64 إذا كان النص بصيغة data:application/json;base64,...
+  if (/^data:[^;]*;base64,/i.test(txt)) {
+    const b64 = txt.split(',')[1] || '';
+    txt = decodeURIComponent(escape(atob(b64.trim())));
+  }
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(txt);
+  } catch (e1) {
+    // محاولة استخراج كود JSON من داخل رسالة واتساب أو نص محيط به
+    const firstObj = txt.indexOf('{');
+    const lastObj = txt.lastIndexOf('}');
+    const firstArr = txt.indexOf('[');
+    const lastArr = txt.lastIndexOf(']');
+    let candidate = '';
+    if (firstObj !== -1 && lastObj > firstObj && (firstArr === -1 || firstObj < firstArr)) {
+      candidate = txt.slice(firstObj, lastObj + 1);
+    } else if (firstArr !== -1 && lastArr > firstArr) {
+      candidate = txt.slice(firstArr, lastArr + 1);
+    }
+    if (!candidate) throw new Error('الملف لا يحتوي على بيانات JSON صالحة');
+    parsed = JSON.parse(candidate);
+  }
+
+  // في حال كان JSON مشفّراً كنص مزدوج
+  if (typeof parsed === 'string') {
+    parsed = JSON.parse(parsed);
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('بنية ملف النسخة الاحتياطية غير معروفة');
+  }
+  return parsed;
+}
+
+function decodeBytesToText(bytes) {
+  // UTF-16 LE BOM (FF FE) or UTF-16 BE BOM (FE FF)
+  if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+    return new TextDecoder('utf-16le').decode(bytes);
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+    return new TextDecoder('utf-16be').decode(bytes);
+  }
+  if (typeof TextDecoder !== 'undefined') {
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) out += String.fromCharCode(bytes[i]);
+  try { return decodeURIComponent(escape(out)); } catch (e) { return out; }
+}
+
+function readFileAsUint8Array(file) {
+  if (file && typeof file.arrayBuffer === 'function') {
+    return file.arrayBuffer().then(buf => new Uint8Array(buf)).catch(() => readFileViaFileReader(file));
+  }
+  return readFileViaFileReader(file);
+}
+
+function readFileViaFileReader(file) {
+  return new Promise((resolve, reject) => {
+    const NativeReader = (window.FileReader && window.FileReader.REAL_READER) ? window.FileReader.REAL_READER : window.FileReader;
+    const reader = new NativeReader();
+    reader.onload = ev => {
+      if (ev.target.result instanceof ArrayBuffer) {
+        resolve(new Uint8Array(ev.target.result));
+      } else {
+        resolve(null);
+      }
+    };
+    reader.onerror = () => reject(new Error('تعذر قراءة محتوى الملف من الجهاز'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function readFileAsTextFallback(file) {
+  if (file && typeof file.text === 'function') {
+    return file.text();
+  }
+  return new Promise((resolve, reject) => {
+    const NativeReader = (window.FileReader && window.FileReader.REAL_READER) ? window.FileReader.REAL_READER : window.FileReader;
+    const reader = new NativeReader();
+    reader.onload = ev => resolve(String(ev.target.result || ''));
+    reader.onerror = () => reject(new Error('تعذر قراءة النص من الملف'));
+    reader.readAsText(file);
+  });
+}
+
+function isRecognizedBackupObject(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  if (Array.isArray(obj)) return obj.length > 0;
+  return (
+    Array.isArray(obj.allCases) ||
+    Array.isArray(obj.cases) ||
+    Array.isArray(obj.records) ||
+    Array.isArray(obj.data) ||
+    Boolean(obj.dailyOps && typeof obj.dailyOps === 'object') ||
+    Array.isArray(obj.standaloneRefs) ||
+    Boolean(obj.diagComments && typeof obj.diagComments === 'object') ||
+    typeof obj.snapshot === 'string'
+  );
+}
+
+async function readSingleRestoreFile(file) {
+  const fname = (file && file.name) ? file.name : 'ملف_غير_مسمى';
+  try {
+    let bytes = null;
+    try { bytes = await readFileAsUint8Array(file); } catch (e) {}
+
+    // فحص البايتات الأولى لمعرفة نوع الملف الحقيقي حتى لو غيّر أندرويد أو واتساب الامتداد
+    const isZipMagic = bytes && bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4B && bytes[2] === 0x03 && bytes[3] === 0x04;
+    const isOleMagic = bytes && bytes.length >= 4 && bytes[0] === 0xD0 && bytes[1] === 0xCF && bytes[2] === 0x11 && bytes[3] === 0xE0;
+    const looksExcelByName = /\.(xlsx|xls|csv)$/i.test(fname);
+
+    // 1. ملفات Excel حقيقية (XLSX / XLS)
+    if (isZipMagic || isOleMagic || /\.(xlsx|xls)$/i.test(fname)) {
+      if (typeof XLSX === 'undefined') {
+        return { name: fname, error: 'مكتبة قراءة Excel غير محمّلة' };
+      }
+      const wb = XLSX.read(bytes, { type: 'array' });
+      const sheetNames = wb.SheetNames || [];
+      // التحقق مما إذا كان المستخدم اختار ملف تقرير ECHO الرسمي المجمّع بدلاً من ملف النسخة الاحتياطية JSON
+      if (sheetNames.includes('W1') && sheetNames.includes('Monthly')) {
+        return { name: fname, error: 'هذا ملف تقرير ECHO المجمّع (وليس ملف نسخة احتياطية). للدمج الجماعي استخدم ملفات (.json) المُصدّرة من زر «إرسال / حفظ ملف الفريق».' };
+      }
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetNames[0]]);
+      if (!rows || !rows.length) {
+        return { name: fname, error: 'ملف الإكسل فارغ أو لا يحتوي على صفوف حالات' };
+      }
+      return { name: fname, parsed: rows };
+    }
+
+    // 2. قراءة كنص ومحاولة تحليل JSON أولاً (يعمل حتى لو كان الملف بدون امتداد أو بامتداد .txt / .bin / .json)
+    let textContent = '';
+    if (bytes && bytes.length > 0) {
+      textContent = decodeBytesToText(bytes);
+    } else {
+      textContent = await readFileAsTextFallback(file);
+    }
+
+    try {
+      const parsed = parseSmartBackupText(textContent);
+      if (!isRecognizedBackupObject(parsed)) {
+        return { name: fname, error: 'ملف JSON لا يحتوي على بنية بيانات تطبيق Morbidity Pro' };
+      }
+      return { name: fname, parsed };
+    } catch (jsonErr) {
+      // 3. محاولة أخيرة كـ CSV إذا كان امتداده .csv
+      if (looksExcelByName && typeof XLSX !== 'undefined' && bytes) {
+        try {
+          const wb = XLSX.read(bytes, { type: 'array' });
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+          if (rows && rows.length) return { name: fname, parsed: rows };
+        } catch (eCsv) {}
+      }
+      return { name: fname, error: jsonErr.message || 'صيغة الملف غير مدعومة (تأكد أنه ملف .json من التطبيق)' };
+    }
+  } catch (err) {
+    return { name: fname, error: (err && err.message) ? err.message : 'تعذر قراءة الملف من الهاتف' };
+  }
+}
+
+function renderMergeReportUI(resultsList, errorList, mode) {
   const box = document.getElementById('mergeReportBox');
   const content = document.getElementById('mergeReportContent');
   if (!box || !content) return;
@@ -1798,25 +1989,39 @@ function renderMergeReportUI(resultsList, mode) {
   const totUpdated = resultsList.reduce((a, r) => a + r.casesUpdated, 0);
   const totSkipped = resultsList.reduce((a, r) => a + r.casesSkipped, 0);
   const totRefs = resultsList.reduce((a, r) => a + r.refsAdded, 0);
+  const totOps = resultsList.reduce((a, r) => a + r.opsDaysMerged, 0);
 
-  content.innerHTML = `
+  const summaryHtml = resultsList.length ? `
     <div class="merge-summary-banner">
       ${mode === 'replace' ? '🔄 تم استبدال البيانات:' : '🤝 اكتمل الدمج الجماعي:'}
-      +${totAdded} حالة جديدة${totUpdated ? ` | ✏️ ${totUpdated} محدّثة` : ''}${totSkipped ? ` | ⏭️ ${totSkipped} مكررة` : ''}${totRefs ? ` | 🚑 +${totRefs} إحالة` : ''}
+      +${totAdded} حالة جديدة${totUpdated ? ` | ✏️ ${totUpdated} محدّثة` : ''}${totSkipped ? ` | ⏭️ ${totSkipped} مكررة` : ''}${totRefs ? ` | 🚑 +${totRefs} إحالة` : ''}${totOps ? ` | 🩺 ${totOps} يوم فرز` : ''}
       — الإجمالي الآن: ${allCases.length} حالة
-    </div>
-    ${resultsList.map(r => `<div class="merge-file-row">
-      <strong>📄 ${r.file}</strong> <span class="member-tag">👤 ${r.sender}</span><br>
-      ✅ جديد: <b>${r.casesAdded}</b> | ✏️ محدّث: <b>${r.casesUpdated}</b> | ⏭️ مكرر: <b>${r.casesSkipped}</b> | 🚑 إحالات: <b>${r.refsAdded}</b> | 🩺 أيام فرز/GHO: <b>${r.opsDaysMerged}</b>
-    </div>`).join('')}
-  `;
+    </div>` : '';
+
+  const okRows = resultsList.map(r => `<div class="merge-file-row">
+    <strong>📄 ${r.file}</strong> <span class="member-tag">👤 ${r.sender}</span><br>
+    ✅ جديد: <b>${r.casesAdded}</b> | ✏️ محدّث: <b>${r.casesUpdated}</b> | ⏭️ مكرر: <b>${r.casesSkipped}</b> | 🚑 إحالات: <b>${r.refsAdded}</b> | 🩺 أيام فرز/GHO: <b>${r.opsDaysMerged}</b>
+  </div>`).join('');
+
+  const errRows = (errorList || []).map(e => `<div class="merge-file-err">
+    <strong>⚠️ ${e.name}</strong><br>${e.error}
+  </div>`).join('');
+
+  content.innerHTML = summaryHtml + okRows + errRows;
   box.classList.remove('hidden');
+  setTimeout(() => { try { box.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {} }, 80);
 }
 
-function applyBatchRestoredSources(sourcesArray) {
-  if (!sourcesArray.length) return showToast('⚠️ لم يتم قراءة أي ملف صالح');
+function applyBatchRestoredSources(sourcesArray, errorList) {
+  const errs = errorList || [];
   const mode = document.querySelector('input[name="restoreMode"]:checked').value;
   const keepFacility = document.getElementById('chkKeepFacilityOnMerge') ? document.getElementById('chkKeepFacilityOnMerge').checked : true;
+
+  if (!sourcesArray.length) {
+    renderMergeReportUI([], errs, mode);
+    showToast('⚠️ لم يتم العثور على ملفات صالحة للدمج — راجع التفاصيل بالأسفل');
+    return;
+  }
 
   if (mode === 'replace') {
     allCases = [];
@@ -1836,37 +2041,11 @@ function applyBatchRestoredSources(sourcesArray) {
 
   document.getElementById('modalTotalCases').textContent = allCases.length;
   updateBackupScopePreview();
-  renderMergeReportUI(results, mode);
+  renderMergeReportUI(results, errs, mode);
 
   const totAdded = results.reduce((a, r) => a + r.casesAdded, 0);
-  showToast(`✅ تم دمج ${results.length} ملف بنجاح (+${totAdded} حالة جديدة | الإجمالي: ${allCases.length})`);
-}
-
-function readSingleRestoreFile(file) {
-  return new Promise(resolve => {
-    const NativeReader = (window.FileReader && window.FileReader.REAL_READER) ? window.FileReader.REAL_READER : window.FileReader;
-    const reader = new NativeReader();
-    if (/\.(xlsx|xls|csv)$/i.test(file.name)) {
-      reader.onload = ev => {
-        try {
-          const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
-          const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-          resolve({ name: file.name, parsed: rows });
-        } catch (err) { resolve(null); }
-      };
-      reader.onerror = () => resolve(null);
-      reader.readAsArrayBuffer(file);
-    } else {
-      reader.onload = ev => {
-        try {
-          const parsed = JSON.parse(String(ev.target.result).replace(/^\uFEFF/, '').trim());
-          resolve({ name: file.name, parsed });
-        } catch (err) { resolve(null); }
-      };
-      reader.onerror = () => resolve(null);
-      reader.readAsText(file);
-    }
-  });
+  const totOps = results.reduce((a, r) => a + r.opsDaysMerged, 0);
+  showToast(`✅ تم دمج ${results.length} ملف بنجاح (+${totAdded} حالة${totOps ? ` | ${totOps} يوم فرز` : ''} | الإجمالي: ${allCases.length})`);
 }
 
 async function handleUniversalRestore(e) {
@@ -1874,17 +2053,20 @@ async function handleUniversalRestore(e) {
   if (!files.length) return;
   const loaded = await Promise.all(files.map(readSingleRestoreFile));
   e.target.value = '';
-  const valid = loaded.filter(Boolean);
-  if (!valid.length) return showToast('⚠️ تعذر قراءة الملفات المختارة — تأكد أنها ملفات JSON أو Excel صالحة');
-  applyBatchRestoredSources(valid);
+  const valid = loaded.filter(x => x && x.parsed && !x.error);
+  const failed = loaded.filter(x => !x || x.error);
+  applyBatchRestoredSources(valid, failed);
 }
 
 function restoreFromText() {
   try {
-    const parsed = JSON.parse(document.getElementById('backupPasteArea').value.trim());
-    applyBatchRestoredSources([{ name: 'نص ملصق من الحافظة', parsed }]);
+    const parsed = parseSmartBackupText(document.getElementById('backupPasteArea').value);
+    if (!isRecognizedBackupObject(parsed)) {
+      return showToast('⚠️ النص الملصق لا يحتوي على بيانات صالحة للتطبيق');
+    }
+    applyBatchRestoredSources([{ name: 'نص ملصق من الحافظة', parsed }], []);
   } catch (err) {
-    showToast('⚠️ النص الملصق غير صالح (تأكد من نسخ كود JSON كاملاً)');
+    showToast('⚠️ ' + (err.message || 'النص الملصق غير صالح (تأكد من نسخ كود JSON كاملاً)'));
   }
 }
 
