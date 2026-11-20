@@ -84,7 +84,7 @@
         اختر ملف القالب الرسمي (مثل <strong>جديد اكسل.xlsx</strong>) <strong>مرة واحدة فقط</strong>؛ سيُحفظ تلقائياً داخل ذاكرة التطبيق للعمل بدون إنترنت، وفي كل مرة تضغط فيها على <strong>📊 Excel الرسمي</strong> سيتم حقن بيانات الأسابيع والورقة الشهرية داخل نفس هذا القالب بنفس ألوانه وشعاراته ومعادلاته 100%.
       </p>
       <button class="btn-action btn-excel full-btn" onclick="document.getElementById('templateFileInput').click()">📂 اختيار ملف القالب الرسمي (.xlsx)</button>
-      <input type="file" id="templateFileInput" accept=".xlsx" class="hidden" onchange="handleTemplateUpload(event)">
+      <input type="file" id="templateFileInput" class="sr-file-input" onchange="handleTemplateUpload(event)">
     </div>
     <div class="row-gap">
       <button class="btn-action btn-share flex-1" onclick="exportOfficialExcelFromModal()">📊 تصدير Excel الآن بهذا القالب</button>
@@ -137,8 +137,9 @@
           <input type="checkbox" id="chkKeepFacilityOnMerge" checked> 🔒 الاحتفاظ بإعدادات المرفق واسم المنسق الحالية (لا تستبدلها ببيانات المُرسل)
         </label>
       </div>
-      <button class="btn-action btn-backup full-btn" onclick="document.getElementById('restoreInput').click()">📂 اختيار ملف أو عدة ملفات من الفريق دفعة واحدة (JSON / Excel)</button>
-      <input type="file" id="restoreInput" class="hidden" multiple accept=".json,.txt,.xlsx,.xls,.csv" onchange="handleUniversalRestore(event)">
+      <button class="btn-action btn-backup full-btn" onclick="document.getElementById('restoreInput').click()">📂 اختيار ملف أو عدة ملفات من الفريق دفعة واحدة (JSON / TXT / Excel)</button>
+      <div style="font-size:11px;color:#475569;margin-top:4px;text-align:center;">💡 لاختيار ملف واحد اضغط عليه مباشرة، ولاختيار عدة ملفات معاً اضغط مطوّلاً على الأول ثم حدد البقية.</div>
+      <input type="file" id="restoreInput" class="sr-file-input" multiple onchange="handleUniversalRestore(event)">
       <textarea id="backupPasteArea" class="backup-textarea" placeholder="أو الصق كود JSON من واتساب هنا مباشرة..."></textarea>
       <button class="btn-action btn-excel full-btn" onclick="restoreFromText()">✅ دمج / استعادة من النص الملصق</button>
     </div>
