@@ -1,4 +1,4 @@
-const CACHE_NAME = 'echo-morbidity-pro-v7';
+const CACHE_NAME = 'echo-morbidity-pro-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -16,9 +16,9 @@ const ASSETS = [
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return Promise.allSettled(ASSETS.map(url => cache.add(url)));
-    })
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.allSettled(ASSETS.map(url => cache.add(url)))
+    )
   );
 });
 
@@ -33,15 +33,12 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      const networkFetch = fetch(event.request).then(res => {
-        if (res && res.status === 200) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return res;
-      }).catch(() => cached);
-      return cached || networkFetch;
-    })
+    fetch(event.request).then(res => {
+      if (res && res.status === 200) {
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      }
+      return res;
+    }).catch(() => caches.match(event.request))
   );
 });
