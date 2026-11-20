@@ -67,6 +67,32 @@
   </div>
 </div>
 
+<!-- نافذة إدارة ورفع القالب الرسمي (Excel Template Manager) -->
+<div id="templateModal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>📄 إدارة قالب Excel الرسمي (التعبئة التلقائية بنفس الألوان والتنسيق)</h3>
+      <button class="btn-action btn-pdf" onclick="closeModal('templateModal')">✖</button>
+    </div>
+    <div id="templateStatusBox" class="panel-box">
+      <div class="panel-title">حالة القالب الرسمي المحفوظ حالياً:</div>
+      <div id="templateStatusText" style="font-size:13px;font-weight:800;color:#475569;">جاري الفحص...</div>
+    </div>
+    <div class="panel-box panel-green">
+      <div class="panel-title">📂 رفع أو تحديث القالب الرسمي (.xlsx) من الهاتف أو الكمبيوتر:</div>
+      <p style="font-size:12px;color:#334155;margin:0 0 10px 0;line-height:1.5;">
+        اختر ملف القالب الرسمي (مثل <strong>جديد اكسل.xlsx</strong>) <strong>مرة واحدة فقط</strong>؛ سيُحفظ تلقائياً داخل ذاكرة التطبيق للعمل بدون إنترنت، وفي كل مرة تضغط فيها على <strong>📊 Excel الرسمي</strong> سيتم حقن بيانات الأسابيع والورقة الشهرية داخل نفس هذا القالب بنفس ألوانه وشعاراته ومعادلاته 100%.
+      </p>
+      <button class="btn-action btn-excel full-btn" onclick="document.getElementById('templateFileInput').click()">📂 اختيار ملف القالب الرسمي (.xlsx)</button>
+      <input type="file" id="templateFileInput" accept=".xlsx" class="hidden" onchange="handleTemplateUpload(event)">
+    </div>
+    <div class="row-gap">
+      <button class="btn-action btn-share flex-1" onclick="exportOfficialExcelFromModal()">📊 تصدير Excel الآن بهذا القالب</button>
+      <button id="btnDeleteTemplate" class="btn-action btn-pdf hidden" onclick="deleteSavedTemplate()">🗑️ حذف القالب المحفوظ</button>
+    </div>
+  </div>
+</div>
+
 <!-- نافذة النسخ الاحتياطي والاستعادة الشاملة -->
 <div id="backupModal" class="modal-backdrop hidden">
   <div class="modal-card">
@@ -146,6 +172,7 @@
     <div class="spacer"></div>
     <button class="btn-action btn-facility" onclick="openModal('facilityModal')">⚙️ المرفق</button>
     <button class="btn-action btn-backup" onclick="openModal('guideModal')">📖 الدليل</button>
+    <button id="btnTemplateMgr" class="btn-action btn-edit" onclick="openTemplateModal()">📄 القالب</button>
     <button class="btn-action btn-excel" onclick="exportOfficialExcel()">📊 Excel الرسمي</button>
     <button class="btn-action btn-pdf" onclick="openPdfStudio()">📐 معاينة و PDF</button>
     <button class="btn-action btn-share" onclick="openBackupModal()">💾 نسخ / استعادة</button>
@@ -387,7 +414,6 @@
 
 <!-- ربط وحدات التطبيق ومحرك تصدير قالب ECHO 23028 الرسمي -->
 <script src="data.js"></script>
-<script src="template-b64.js"></script>
 <script src="excel-exporter.js"></script>
 <script src="app.js"></script>
 </body>
