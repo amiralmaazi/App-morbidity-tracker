@@ -1,4 +1,4 @@
-const CACHE_NAME = 'echo-morbidity-pro-v5';
+const CACHE_NAME = 'echo-morbidity-pro-v7';
 const ASSETS = [
   './',
   './index.html',
