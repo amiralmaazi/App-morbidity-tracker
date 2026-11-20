@@ -203,6 +203,7 @@ function initApp() {
     renderDiagList();
     renderQuickPicks();
     updateLivePreview();
+    refreshTemplateStatusUI();
   });
 
   if ('serviceWorker' in navigator && !window.cordova) {
@@ -1218,9 +1219,17 @@ async function exportFinalPDF() {
 
 // -------------------- تصدير ملف Excel الرسمي المطابق للقالب 100% --------------------
 async function exportOfficialExcel() {
+  const tpl = await resolveTemplateSource();
+  if (!tpl) {
+    pendingExportAfterTemplateUpload = true;
+    await openTemplateModal();
+    showToast('📂 اختر ملف القالب الرسمي (.xlsx) مرة واحدة وسيتم تعبئته وتصديره تلقائياً');
+    return;
+  }
+
   const overlay = document.getElementById('captureOverlay');
   const statusEl = document.getElementById('captureStatusText');
-  statusEl.textContent = 'جاري بناء ملف Excel الرسمي (ECHO 23028) بجميع التنسيقات والألوان والصفحات الثمانية...';
+  statusEl.textContent = `جاري تعبئة القالب الرسمي (${(tpl.meta && tpl.meta.name) || 'ECHO 23028'}) بجميع الألوان والشعارات والمعادلات...`;
   overlay.classList.remove('hidden');
 
   try {
@@ -1232,8 +1241,91 @@ async function exportOfficialExcel() {
     await dispatchBase64File(pureBase64, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   } catch (err) {
     overlay.classList.add('hidden');
+    if (err && err.code === 'NO_TEMPLATE') {
+      pendingExportAfterTemplateUpload = true;
+      await openTemplateModal();
+      return;
+    }
     showToast('⚠️ تعذر تصدير القالب الرسمي: ' + (err.message || err));
   }
+}
+
+// -------------------- إدارة القالب الرسمي المرفوع داخل التطبيق --------------------
+let pendingExportAfterTemplateUpload = false;
+
+async function refreshTemplateStatusUI() {
+  const statusEl = document.getElementById('templateStatusText');
+  const delBtn = document.getElementById('btnDeleteTemplate');
+  const hdrBtn = document.getElementById('btnTemplateMgr');
+
+  const tpl = await resolveTemplateSource();
+  if (!tpl) {
+    if (statusEl) statusEl.innerHTML = '⚠️ <strong>لم يتم رفع القالب الرسمي بعد.</strong><br><small>ارفع ملف <code>جديد اكسل.xlsx</code> بالأسفل مرة واحدة ليُحفظ للأبد.</small>';
+    if (delBtn) delBtn.classList.add('hidden');
+    if (hdrBtn) { hdrBtn.textContent = '📄 رفع القالب'; hdrBtn.style.background = '#d97706'; }
+    return null;
+  }
+
+  const m = tpl.meta || {};
+  const sizeKB = m.size ? (m.size / 1024).toFixed(0) + ' KB' : '';
+  const sheetsInfo = Array.isArray(m.sheets) && m.sheets.length ? ` | الأوراق: ${m.sheets.join(', ')}` : '';
+  const srcLabel = tpl.source === 'uploaded' ? 'محفوظ في ذاكرة التطبيق (أوفلاين)' : 'مضمّن افتراضياً مع التطبيق';
+
+  if (statusEl) {
+    statusEl.innerHTML = `✅ <strong>${m.name || 'القالب الرسمي.xlsx'}</strong> ${sizeKB ? `(${sizeKB})` : ''}<br><small style="color:#0f766e;">${srcLabel}${sheetsInfo}</small>`;
+  }
+  if (delBtn) delBtn.classList.toggle('hidden', tpl.source !== 'uploaded');
+  if (hdrBtn) { hdrBtn.textContent = '📄 القالب ✅'; hdrBtn.style.background = '#0d9488'; }
+  return tpl;
+}
+
+async function openTemplateModal() {
+  openModal('templateModal');
+  await refreshTemplateStatusUI();
+}
+
+function handleTemplateUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const NativeReader = (window.FileReader && window.FileReader.REAL_READER) ? window.FileReader.REAL_READER : window.FileReader;
+  const reader = new NativeReader();
+  reader.onload = async ev => {
+    try {
+      const bytes = new Uint8Array(ev.target.result);
+      const info = await inspectEchoTemplateBytes(bytes);
+      const meta = {
+        name: file.name,
+        size: bytes.byteLength,
+        sheets: info.sheetNames,
+        weeks: info.weekSheets,
+        savedAt: new Date().toISOString()
+      };
+      await saveUploadedTemplateToIDB(meta, bytes);
+      await refreshTemplateStatusUI();
+      showToast(`✅ تم حفظ القالب الرسمي (${file.name}) بنجاح — ${info.sheetNames.length} أوراق`);
+      if (pendingExportAfterTemplateUpload) {
+        pendingExportAfterTemplateUpload = false;
+        closeModal('templateModal');
+        await exportOfficialExcel();
+      }
+    } catch (err) {
+      showToast('⚠️ ' + (err.message || 'تعذر قراءة ملف القالب'));
+    }
+    e.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function deleteSavedTemplate() {
+  if (!confirm('حذف القالب الرسمي المحفوظ من ذاكرة التطبيق؟')) return;
+  await clearUploadedTemplateFromIDB();
+  await refreshTemplateStatusUI();
+  showToast('🗑️ تم حذف القالب المحفوظ');
+}
+
+async function exportOfficialExcelFromModal() {
+  closeModal('templateModal');
+  await exportOfficialExcel();
 }
 
 // -------------------- النسخ الاحتياطي والاستعادة الشاملة --------------------
