@@ -8,8 +8,89 @@ const KEYS = {
   REFS: 'ECHO23028_STANDALONE_REFS_V2',
   COMMENTS: 'ECHO23028_DIAG_COMMENTS_V2',
   FACILITY: 'ECHO23028_FACILITY_V2',
-  PINS: 'ECHO23028_PINS_V2'
+  PINS: 'ECHO23028_PINS_V2',
+  DEVICE_ID: 'ECHO23028_DEVICE_ID_V1',
+  MEMBER_NAME: 'ECHO23028_MEMBER_NAME_V1'
 };
+
+let deviceId = '';
+let teamMemberName = '';
+
+function getOrCreateDeviceId() {
+  if (deviceId) return deviceId;
+  try {
+    const saved = localStorage.getItem(KEYS.DEVICE_ID);
+    if (saved && saved.trim()) { deviceId = saved.trim(); return deviceId; }
+  } catch (e) {}
+  deviceId = 'DEV_' + Date.now().toString(36).toUpperCase() + '_' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  try { localStorage.setItem(KEYS.DEVICE_ID, deviceId); } catch (e) {}
+  return deviceId;
+}
+
+function getCurrentMemberName() {
+  if (teamMemberName && teamMemberName.trim()) return teamMemberName.trim();
+  return (facility && facility.doctor && facility.doctor.trim()) ? facility.doctor.trim() : 'عضو الفريق';
+}
+
+function saveTeamMemberName(val) {
+  teamMemberName = String(val || '').trim();
+  try { localStorage.setItem(KEYS.MEMBER_NAME, teamMemberName); } catch (e) {}
+  showToast('✅ تم تحديث اسمك في الفريق: ' + getCurrentMemberName());
+}
+
+function makeUniqueUid(prefix) {
+  const dev = getOrCreateDeviceId();
+  return `${dev}_${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+// Helper: keep dailyOps[date] totals synced from per-device breakdown (backward compatible)
+function normalizeDailyOpsEntry(entry, fallbackDevId, fallbackName) {
+  const e = entry || {};
+  const out = { triageF: 0, triageM: 0, ghoF: 0, ghoM: 0, byDevice: {} };
+  if (e.byDevice && typeof e.byDevice === 'object' && Object.keys(e.byDevice).length > 0) {
+    Object.entries(e.byDevice).forEach(([dev, v]) => {
+      if (!v || typeof v !== 'object') return;
+      out.byDevice[dev] = {
+        name: String(v.name || fallbackName || dev),
+        triageF: Math.max(0, Number(v.triageF) || 0),
+        triageM: Math.max(0, Number(v.triageM) || 0),
+        ghoF: Math.max(0, Number(v.ghoF) || 0),
+        ghoM: Math.max(0, Number(v.ghoM) || 0),
+        updatedAt: Number(v.updatedAt) || 0
+      };
+    });
+  } else {
+    const tf = Math.max(0, Number(e.triageF) || 0);
+    const tm = Math.max(0, Number(e.triageM) || 0);
+    const gf = Math.max(0, Number(e.ghoF) || 0);
+    const gm = Math.max(0, Number(e.ghoM) || 0);
+    if (tf + tm + gf + gm > 0) {
+      const key = fallbackDevId || getOrCreateDeviceId();
+      out.byDevice[key] = {
+        name: String(fallbackName || getCurrentMemberName()),
+        triageF: tf, triageM: tm, ghoF: gf, ghoM: gm,
+        updatedAt: Number(e.updatedAt) || 0
+      };
+    }
+  }
+  recalcDailyOpsTotals(out);
+  return out;
+}
+
+function recalcDailyOpsTotals(opsEntry) {
+  let tf = 0, tm = 0, gf = 0, gm = 0;
+  Object.values(opsEntry.byDevice || {}).forEach(v => {
+    tf += Math.max(0, Number(v.triageF) || 0);
+    tm += Math.max(0, Number(v.triageM) || 0);
+    gf += Math.max(0, Number(v.ghoF) || 0);
+    gm += Math.max(0, Number(v.ghoM) || 0);
+  });
+  opsEntry.triageF = tf;
+  opsEntry.triageM = tm;
+  opsEntry.ghoF = gf;
+  opsEntry.ghoM = gm;
+  return opsEntry;
+}
 
 let allCases = [];
 let dailyOps = {};       // { 'YYYY-MM-DD': { triageF, triageM, ghoF, ghoM } }
@@ -61,11 +142,58 @@ function getArabicDayName(dateStr) {
   return isNaN(d) ? '' : days[d.getDay()];
 }
 
+// دورة الشهر التقريري الرسمية: من يوم 26 في الشهر السابق إلى يوم 25 في الشهر الحالي
+function getAppReportingMonthForDate(dateStr) {
+  const [yr, mo, dy] = String(dateStr || '').split('-').map(Number);
+  if (!yr || !mo || !dy) return new Date().toISOString().slice(0, 7);
+  if (dy >= 26) {
+    const ny = mo === 12 ? yr + 1 : yr;
+    const nm = mo === 12 ? 1 : mo + 1;
+    return `${ny}-${String(nm).padStart(2, '0')}`;
+  }
+  return `${yr}-${String(mo).padStart(2, '0')}`;
+}
+
+function getAppReportingMonthBounds(monthYYYYMM) {
+  const [yr, mo] = String(monthYYYYMM || '').split('-').map(Number);
+  const py = mo === 1 ? yr - 1 : yr;
+  const pm = mo === 1 ? 12 : mo - 1;
+  return {
+    startISO: `${py}-${String(pm).padStart(2, '0')}-26`,
+    endISO: `${yr}-${String(mo).padStart(2, '0')}-25`
+  };
+}
+
+function addAppDaysISO(dateStr, days) {
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+function diffAppDaysISO(d1, d2) {
+  const [y1, m1, day1] = String(d1).split('-').map(Number);
+  const [y2, m2, day2] = String(d2).split('-').map(Number);
+  return Math.round((Date.UTC(y2, m2 - 1, day2) - Date.UTC(y1, m1 - 1, day1)) / 86400000);
+}
+
+function fmtShortDate(isoStr) {
+  const [y, m, d] = String(isoStr || '').split('-');
+  return d ? `${Number(d)}/${Number(m)}/${y}` : isoStr;
+}
+
+function getAppReportingWeekBounds(monthYYYYMM, weekIndex0) {
+  const { startISO, endISO } = getAppReportingMonthBounds(monthYYYYMM);
+  const wkStart = addAppDaysISO(startISO, weekIndex0 * 7);
+  const rawEnd = addAppDaysISO(wkStart, 6);
+  const wkEnd = weekIndex0 === 4 ? endISO : (rawEnd <= endISO ? rawEnd : endISO);
+  return { wkStart, wkEnd, isEmpty: wkStart > endISO };
+}
+
 function getReportingWeekNumber(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  if (isNaN(d)) return 'W1';
-  const day = d.getDate();
-  return 'W' + Math.min(5, Math.ceil(day / 7));
+  const repMonth = getAppReportingMonthForDate(dateStr);
+  const { startISO } = getAppReportingMonthBounds(repMonth);
+  const diff = diffAppDaysISO(startISO, dateStr);
+  if (isNaN(diff) || diff < 0) return 'W1';
+  return 'W' + Math.min(5, Math.floor(diff / 7) + 1);
 }
 
 function nz(val) { return val > 0 ? `<td class="cell-nz">${val}</td>` : `<td>0</td>`; }
@@ -89,12 +217,31 @@ function saveAllState() {
 }
 
 function loadAllState(cb) {
+  getOrCreateDeviceId();
+  try { const x = localStorage.getItem(KEYS.MEMBER_NAME); if (x) teamMemberName = x; } catch (e) {}
   try { const x = localStorage.getItem(KEYS.CASES); if (x) allCases = JSON.parse(x); } catch (e) {}
   try { const x = localStorage.getItem(KEYS.OPS); if (x) dailyOps = JSON.parse(x); } catch (e) {}
   try { const x = localStorage.getItem(KEYS.REFS); if (x) standaloneRefs = JSON.parse(x); } catch (e) {}
   try { const x = localStorage.getItem(KEYS.COMMENTS); if (x) diagComments = JSON.parse(x); } catch (e) {}
   try { const x = localStorage.getItem(KEYS.FACILITY); if (x) facility = { ...facility, ...JSON.parse(x) }; } catch (e) {}
   try { const x = localStorage.getItem(KEYS.PINS); if (x) pinned = { ...pinned, ...JSON.parse(x) }; } catch (e) {}
+
+  // Ensure all local records carry deviceId & normalized dailyOps breakdown
+  const myDev = getOrCreateDeviceId();
+  const myName = getCurrentMemberName();
+  allCases.forEach(c => {
+    if (!c.deviceId) c.deviceId = myDev;
+    if (!c.enteredBy) c.enteredBy = myName;
+    if (!c.updatedAt) c.updatedAt = 0;
+  });
+  standaloneRefs.forEach(r => {
+    if (!r.deviceId) r.deviceId = myDev;
+    if (!r.enteredBy) r.enteredBy = myName;
+    if (!r.updatedAt) r.updatedAt = 0;
+  });
+  Object.keys(dailyOps).forEach(dt => {
+    dailyOps[dt] = normalizeDailyOpsEntry(dailyOps[dt], myDev, myName);
+  });
 
   // استيراد تلقائي من الإصدارات السابقة إذا كانت الذاكرة الجديدة فارغة
   if (allCases.length === 0) {
@@ -111,7 +258,7 @@ function loadAllState(cb) {
   cb();
 }
 
-function normalizeRecord(r, idx) {
+function normalizeRecord(r, idx, ctxDevId, ctxMemberName) {
   if (!r || typeof r !== 'object') return null;
   let diagId = Number(r.diagId ?? r.id ?? r['Diagnosis #'] ?? 0);
   let diagObj = DIAGNOSES.find(d => d.id === diagId);
@@ -157,7 +304,11 @@ function normalizeRecord(r, idx) {
     elderly65: Boolean(r.elderly65),
     vitA: Boolean(r.vitA),
     referral: r.referral || null,
-    restrictedDrugs: Array.isArray(r.restrictedDrugs) ? r.restrictedDrugs : []
+    restrictedDrugs: Array.isArray(r.restrictedDrugs) ? r.restrictedDrugs : [],
+    deviceId: String(r.deviceId || ctxDevId || ''),
+    enteredBy: String(r.enteredBy || ctxMemberName || ''),
+    updatedAt: Number(r.updatedAt) || 0,
+    _hasExplicitUid: Boolean(r.uid)
   };
 }
 
@@ -172,10 +323,12 @@ function recalculateDailySerials() {
 // -------------------- تهيئة الواجهة --------------------
 function initApp() {
   const today = new Date().toISOString().split('T')[0];
+  const initRepMonth = getAppReportingMonthForDate(today);
+  const initBounds = getAppReportingMonthBounds(initRepMonth);
   document.getElementById('workDate').value = today;
-  document.getElementById('reportMonthPicker').value = today.slice(0, 7);
-  document.getElementById('rangeStart').value = today.slice(0, 8) + '01';
-  document.getElementById('rangeEnd').value = today;
+  document.getElementById('reportMonthPicker').value = initRepMonth;
+  document.getElementById('rangeStart').value = initBounds.startISO;
+  document.getElementById('rangeEnd').value = initBounds.endISO;
 
   // ملء القوائم المنسدلة من data.js
   const facSel = document.getElementById('facPresetSelect');
@@ -270,8 +423,9 @@ function switchTab(tab) {
 
 function onDateChange() {
   const dateStr = document.getElementById('workDate').value;
-  document.getElementById('dayWeekLabel').textContent = `${getArabicDayName(dateStr)} | ${getReportingWeekNumber(dateStr)}`;
-  document.getElementById('reportMonthPicker').value = dateStr.slice(0, 7);
+  const repMonth = getAppReportingMonthForDate(dateStr);
+  document.getElementById('dayWeekLabel').textContent = `${getArabicDayName(dateStr)} | ${getReportingWeekNumber(dateStr)} (دورة ${repMonth})`;
+  document.getElementById('reportMonthPicker').value = repMonth;
   document.querySelectorAll('.opsDateLbl').forEach(el => el.textContent = dateStr);
   refreshAllViews();
 }
@@ -455,7 +609,7 @@ function saveCase() {
   if (editingUid) {
     const idx = allCases.findIndex(c => c.uid === editingUid);
     if (idx !== -1) {
-      allCases[idx] = { ...allCases[idx], ...recordData };
+      allCases[idx] = { ...allCases[idx], ...recordData, updatedAt: Date.now() };
       recalculateDailySerials();
       saveAllState();
       cancelEditCase();
@@ -467,9 +621,12 @@ function saveCase() {
 
   const timeStr = new Date().toTimeString().slice(0, 5);
   allCases.push({
-    uid: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    uid: makeUniqueUid('c'),
     serial: allCases.filter(c => c.date === dateStr).length + 1,
     time: timeStr,
+    deviceId: getOrCreateDeviceId(),
+    enteredBy: getCurrentMemberName(),
+    updatedAt: Date.now(),
     ...recordData
   });
   saveAllState();
@@ -592,11 +749,12 @@ function syncLogScope() { renderDailyLog(); }
 function getCasesForLogScope() {
   const scope = document.getElementById('logScopeSelect').value;
   const d = document.getElementById('workDate').value;
+  const repMonth = getAppReportingMonthForDate(d);
   if (scope === 'all') return allCases;
-  if (scope === 'month') return allCases.filter(c => c.date.startsWith(d.slice(0, 7)));
+  if (scope === 'month') return allCases.filter(c => getAppReportingMonthForDate(c.date) === repMonth);
   if (scope === 'week') {
     const wk = getReportingWeekNumber(d);
-    return allCases.filter(c => c.date.startsWith(d.slice(0, 7)) && getReportingWeekNumber(c.date) === wk);
+    return allCases.filter(c => getAppReportingMonthForDate(c.date) === repMonth && getReportingWeekNumber(c.date) === wk);
   }
   return allCases.filter(c => c.date === d);
 }
@@ -616,7 +774,7 @@ function renderDailyLog() {
     if (c.referral) extras.push('🚑Ref');
     if (c.restrictedDrugs && c.restrictedDrugs.length) extras.push(`💉(${c.restrictedDrugs.length})`);
     return `<tr>
-      <td><span class="badge-serial">#${c.serial}</span></td>
+      <td><span class="badge-serial">#${c.serial}</span>${c.enteredBy ? `<div><span class="member-tag">${c.enteredBy}</span></div>` : ''}</td>
       <td>${c.time}</td>
       <td>${c.date}</td>
       <td><span onclick="quickToggleGender('${c.uid}')" style="cursor:pointer;font-weight:900;color:${c.gender==='Female'?'#9d174d':'#1e40af'}">${c.gender==='Female'?'👩 F':'👨 M'}</span></td>
@@ -636,13 +794,26 @@ function renderDailyLog() {
 // -------------------- التبويب 2: الإحالات، الفرز، GHO والملاحظات --------------------
 function renderOpsUI() {
   const d = document.getElementById('workDate').value;
-  const ops = dailyOps[d] || { triageF: 0, triageM: 0, ghoF: 0, ghoM: 0 };
+  const ops = normalizeDailyOpsEntry(dailyOps[d], getOrCreateDeviceId(), getCurrentMemberName());
   document.getElementById('opsTriageF').value = ops.triageF || 0;
   document.getElementById('opsTriageM').value = ops.triageM || 0;
   document.getElementById('opsTriageTot').value = (Number(ops.triageF) || 0) + (Number(ops.triageM) || 0);
   document.getElementById('opsGhoF').value = ops.ghoF || 0;
   document.getElementById('opsGhoM').value = ops.ghoM || 0;
   document.getElementById('opsGhoTot').value = (Number(ops.ghoF) || 0) + (Number(ops.ghoM) || 0);
+
+  // عرض تفصيل مساهمات الفريق للفرز والتدريب إذا شارك أكثر من جهاز في نفس اليوم
+  const bdBox = document.getElementById('opsTeamBreakdownBox');
+  if (bdBox) {
+    const contributors = Object.entries(ops.byDevice || {}).filter(([, v]) => (v.triageF + v.triageM + v.ghoF + v.ghoM) > 0);
+    if (contributors.length > 1) {
+      bdBox.classList.remove('hidden');
+      bdBox.innerHTML = `<div class="section-title" style="margin-bottom:6px;"><span>👥 تفصيل مساهمة الفريق ليوم ${d} (مجموع تلقائي بدون تداخل)</span></div>` +
+        contributors.map(([, v]) => `<div class="mini-item"><span>👤 <strong>${v.name}</strong></span><span>الفرز: F=${v.triageF} / M=${v.triageM} | GHO: F=${v.ghoF} / M=${v.ghoM}</span></div>`).join('');
+    } else {
+      bdBox.classList.add('hidden');
+    }
+  }
 
   const dayRefs = standaloneRefs.filter(r => r.date === d);
   document.getElementById('standaloneReferralsList').innerHTML = dayRefs.map(r => {
@@ -665,12 +836,41 @@ function renderOpsUI() {
 
 function saveDailyOps() {
   const d = document.getElementById('workDate').value;
-  dailyOps[d] = {
-    triageF: Math.max(0, Number(document.getElementById('opsTriageF').value) || 0),
-    triageM: Math.max(0, Number(document.getElementById('opsTriageM').value) || 0),
-    ghoF: Math.max(0, Number(document.getElementById('opsGhoF').value) || 0),
-    ghoM: Math.max(0, Number(document.getElementById('opsGhoM').value) || 0)
-  };
+  const myDev = getOrCreateDeviceId();
+  const myName = getCurrentMemberName();
+  const entry = normalizeDailyOpsEntry(dailyOps[d], myDev, myName);
+
+  const newTF = Math.max(0, Number(document.getElementById('opsTriageF').value) || 0);
+  const newTM = Math.max(0, Number(document.getElementById('opsTriageM').value) || 0);
+  const newGF = Math.max(0, Number(document.getElementById('opsGhoF').value) || 0);
+  const newGM = Math.max(0, Number(document.getElementById('opsGhoM').value) || 0);
+
+  let otherTF = 0, otherTM = 0, otherGF = 0, otherGM = 0;
+  Object.entries(entry.byDevice || {}).forEach(([dev, v]) => {
+    if (dev === myDev) return;
+    otherTF += Number(v.triageF) || 0;
+    otherTM += Number(v.triageM) || 0;
+    otherGF += Number(v.ghoF) || 0;
+    otherGM += Number(v.ghoM) || 0;
+  });
+
+  if (newTF < otherTF || newTM < otherTM || newGF < otherGF || newGM < otherGM) {
+    // تعديل يدوي مباشر من المنسق لتصحيح الإجمالي
+    entry.byDevice = {
+      [myDev]: { name: myName, triageF: newTF, triageM: newTM, ghoF: newGF, ghoM: newGM, updatedAt: Date.now() }
+    };
+  } else {
+    entry.byDevice[myDev] = {
+      name: myName,
+      triageF: newTF - otherTF,
+      triageM: newTM - otherTM,
+      ghoF: newGF - otherGF,
+      ghoM: newGM - otherGM,
+      updatedAt: Date.now()
+    };
+  }
+
+  dailyOps[d] = recalcDailyOpsTotals(entry);
   saveAllState();
   renderOpsUI();
   renderReports();
@@ -684,7 +884,10 @@ function addStandaloneReferral() {
     return showToast('⚠️ نوع الإحالة غير متوافق مع الفئة العمرية أو الجنس حسب ECHO');
   }
   standaloneRefs.push({
-    uid: 'ref_' + Date.now(),
+    uid: makeUniqueUid('ref'),
+    deviceId: getOrCreateDeviceId(),
+    enteredBy: getCurrentMemberName(),
+    updatedAt: Date.now(),
     date: document.getElementById('workDate').value,
     type, gender, ageGroup,
     cash: document.getElementById('saRefCash').value === '1',
@@ -733,7 +936,8 @@ function onReportScopeChange() {
 function getScopeFilterPredicate(scopeOverride) {
   const scope = scopeOverride || document.getElementById('reportScope').value;
   const workDate = document.getElementById('workDate').value;
-  const monthVal = document.getElementById('reportMonthPicker').value || workDate.slice(0, 7);
+  const monthVal = document.getElementById('reportMonthPicker').value || getAppReportingMonthForDate(workDate);
+  const { startISO: mStart, endISO: mEnd } = getAppReportingMonthBounds(monthVal);
   const rStart = document.getElementById('rangeStart').value;
   const rEnd = document.getElementById('rangeEnd').value;
 
@@ -744,11 +948,15 @@ function getScopeFilterPredicate(scopeOverride) {
     label = `DAILY: ${workDate} (${getArabicDayName(workDate)})`;
     fn = d => d === workDate;
   } else if (['W1','W2','W3','W4','W5'].includes(scope)) {
-    label = `WEEKLY (${scope}) - ${monthVal}`;
-    fn = d => d.startsWith(monthVal) && getReportingWeekNumber(d) === scope;
+    const wIdx = Number(scope.slice(1)) - 1;
+    const { wkStart, wkEnd, isEmpty } = getAppReportingWeekBounds(monthVal, wIdx);
+    label = isEmpty
+      ? `WEEKLY (${scope}) - ${monthVal} (خارج نطاق 26–25)`
+      : `WEEKLY (${scope}): ${fmtShortDate(wkStart)} → ${fmtShortDate(wkEnd)}`;
+    fn = d => !isEmpty && d >= wkStart && d <= wkEnd;
   } else if (scope === 'month') {
-    label = `MONTHLY CONSOLIDATED - ${monthVal}`;
-    fn = d => d.startsWith(monthVal);
+    label = `MONTHLY CONSOLIDATED (${monthVal}): ${fmtShortDate(mStart)} → ${fmtShortDate(mEnd)}`;
+    fn = d => d >= mStart && d <= mEnd;
   } else if (scope === 'custom') {
     label = `CUSTOM RANGE: ${rStart} → ${rEnd}`;
     fn = d => (!rStart || d >= rStart) && (!rEnd || d <= rEnd);
@@ -785,7 +993,7 @@ function buildReportDataset(scopeOverride) {
   const edewsDaily = cases.filter(c => c.caseType === 'New' && EDEWS_DAILY_IDS.includes(c.diagId)).length;
   const activeNotifiableWeeks = new Set(
     cases.filter(c => c.caseType === 'New' && c.diagId >= EDEWS_WEEKLY_MIN_ID && c.diagId <= EDEWS_WEEKLY_MAX_ID)
-      .map(c => c.date.slice(0, 7) + '_' + getReportingWeekNumber(c.date))
+      .map(c => getAppReportingMonthForDate(c.date) + '_' + getReportingWeekNumber(c.date))
   );
   const edewsWeekly = scope === 'day' || ['W1','W2','W3','W4','W5'].includes(scope)
     ? (activeNotifiableWeeks.size > 0 ? 1 : 0)
@@ -1101,6 +1309,20 @@ function renderAnalytics() {
         </div>`).join('')}
       </div>
     </div>
+    ${(() => {
+      const mMap = {};
+      cases.forEach(c => {
+        const who = (c.enteredBy && c.enteredBy.trim()) ? c.enteredBy.trim() : 'غير محدد';
+        mMap[who] = (mMap[who] || 0) + 1;
+      });
+      const mList = Object.entries(mMap).sort((a, b) => b[1] - a[1]);
+      if (!mList.length) return '';
+      const mMax = mList[0][1] || 1;
+      return `<div class="card">
+        <div class="section-title"><span>👥 توزيع الحالات المسجلة حسب أعضاء الفريق (${mList.length})</span></div>
+        ${mList.map(([name, cnt]) => `<div class="bar-row"><span style="width:160px;">👤 ${name}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.round((cnt/mMax)*100)}%"></div></div><strong>${cnt} حالة</strong></div>`).join('')}
+      </div>`;
+    })()}
   `;
 }
 
@@ -1233,7 +1455,7 @@ async function exportOfficialExcel() {
   overlay.classList.remove('hidden');
 
   try {
-    const targetMonth = document.getElementById('reportMonthPicker').value || document.getElementById('workDate').value.slice(0, 7);
+    const targetMonth = document.getElementById('reportMonthPicker').value || getAppReportingMonthForDate(document.getElementById('workDate').value);
     const { pureBase64, filename } = await exportExactOfficialEchoExcel(
       allCases, dailyOps, standaloneRefs, diagComments, facility, targetMonth
     );
@@ -1328,83 +1550,342 @@ async function exportOfficialExcelFromModal() {
   await exportOfficialExcel();
 }
 
-// -------------------- النسخ الاحتياطي والاستعادة الشاملة --------------------
+// -------------------- مركز دمج الفريق والنسخ الاحتياطي الأوفلاين (JSON) --------------------
+function getBackupExportFilter(scope) {
+  const workDate = document.getElementById('workDate').value;
+  const repMonth = getAppReportingMonthForDate(workDate);
+  if (scope === 'day') {
+    return { tag: workDate, match: d => d === workDate };
+  }
+  if (scope === 'week') {
+    const wk = getReportingWeekNumber(workDate);
+    return { tag: `${repMonth}_${wk}`, match: d => getAppReportingMonthForDate(d) === repMonth && getReportingWeekNumber(d) === wk };
+  }
+  if (scope === 'month') {
+    return { tag: repMonth, match: d => getAppReportingMonthForDate(d) === repMonth };
+  }
+  return { tag: `Full_${workDate}`, match: () => true };
+}
+
+function buildTeamExportPayload(scope) {
+  const { tag, match } = getBackupExportFilter(scope);
+  const myDev = getOrCreateDeviceId();
+  const myName = getCurrentMemberName();
+
+  const expCases = allCases.filter(c => match(c.date)).map(c => ({
+    ...c,
+    deviceId: c.deviceId || myDev,
+    enteredBy: c.enteredBy || myName
+  }));
+  const expRefs = standaloneRefs.filter(r => match(r.date)).map(r => ({
+    ...r,
+    deviceId: r.deviceId || myDev,
+    enteredBy: r.enteredBy || myName
+  }));
+  const expOps = {};
+  Object.entries(dailyOps).forEach(([dt, v]) => {
+    if (match(dt)) expOps[dt] = normalizeDailyOpsEntry(v, myDev, myName);
+  });
+
+  return {
+    tag,
+    payload: {
+      schemaVersion: 3,
+      exportedAt: new Date().toISOString(),
+      exportScope: scope,
+      sender: { deviceId: myDev, name: myName },
+      facility,
+      allCases: expCases,
+      dailyOps: expOps,
+      standaloneRefs: expRefs,
+      diagComments
+    }
+  };
+}
+
+function updateBackupScopePreview() {
+  const scopeEl = document.getElementById('backupExportScope');
+  const scope = scopeEl ? scopeEl.value : 'all';
+  const { match } = getBackupExportFilter(scope);
+  const cnt = allCases.filter(c => match(c.date)).length;
+  const el = document.getElementById('modalScopeCount');
+  if (el) el.textContent = cnt;
+}
+
 function openBackupModal() {
   document.getElementById('modalTotalCases').textContent = allCases.length;
   document.getElementById('backupPasteArea').value = '';
+  const nameInput = document.getElementById('teamMemberNameInput');
+  if (nameInput) nameInput.value = getCurrentMemberName();
+  const idBadge = document.getElementById('deviceIdBadge');
+  if (idBadge) idBadge.textContent = getOrCreateDeviceId();
+  updateBackupScopePreview();
   openModal('backupModal');
 }
 
 async function exportBackupJSON() {
-  const payload = JSON.stringify({ facility, allCases, dailyOps, standaloneRefs, diagComments }, null, 2);
-  const b64 = btoa(unescape(encodeURIComponent(payload)));
-  await dispatchBase64File(b64, `ECHO23028_Backup_${document.getElementById('workDate').value}.json`, 'application/json');
+  const scope = (document.getElementById('backupExportScope') && document.getElementById('backupExportScope').value) || 'all';
+  const { tag, payload } = buildTeamExportPayload(scope);
+  const safeSender = getCurrentMemberName().replace(/[^\w\u0600-\u06FF-]+/g, '_').slice(0, 24) || 'Member';
+  const fname = `ECHO23028_Team_${safeSender}_${tag}.json`;
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+  await dispatchBase64File(b64, fname, 'application/json');
 }
 
 function copyBackupToClipboard() {
-  const txt = JSON.stringify({ facility, allCases, dailyOps, standaloneRefs, diagComments });
+  const scope = (document.getElementById('backupExportScope') && document.getElementById('backupExportScope').value) || 'all';
+  const { payload } = buildTeamExportPayload(scope);
+  const txt = JSON.stringify(payload);
   document.getElementById('backupPasteArea').value = txt;
-  if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => showToast('📋 تم نسخ النسخة الاحتياطية')).catch(() => {});
+  if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => showToast('📋 تم نسخ كود الفريق للحافظة — الصقه في واتساب')).catch(() => {});
 }
 
-function applyRestoredData(parsed) {
-  const mode = document.querySelector('input[name="restoreMode"]:checked').value;
+// دمج مصدر واحد (ملف JSON أو Excel أو نص) وإرجاع إحصائية تفصيلية دقيقة
+function mergeSingleSourceIntoState(parsed, sourceLabel, mode, keepFacility) {
+  const stats = {
+    file: sourceLabel,
+    sender: (parsed && parsed.sender && parsed.sender.name) || (parsed && parsed.facility && parsed.facility.doctor) || sourceLabel,
+    casesAdded: 0,
+    casesUpdated: 0,
+    casesSkipped: 0,
+    refsAdded: 0,
+    opsDaysMerged: 0,
+    commentsMerged: 0
+  };
+
+  const srcDevId = (parsed && parsed.sender && parsed.sender.deviceId) || ('SRC_' + sourceLabel.replace(/\W+/g, '').slice(0, 12));
+  const srcName = stats.sender;
+
   const rawList = Array.isArray(parsed) ? parsed : (parsed.allCases || parsed.cases || parsed.records || []);
-  const clean = rawList.map((r, i) => normalizeRecord(r, i)).filter(Boolean);
-  if (!clean.length) return showToast('⚠️ لم يتم العثور على حالات صالحة');
+  const cleanCases = rawList.map((r, i) => normalizeRecord(r, i, srcDevId, srcName)).filter(Boolean);
+
+  // بناء فهرس الحالات الحالية بالـ uid الفريد + مفتاح احتياطي للملفات القديمة جداً بدون uid
+  const uidIndex = new Map();
+  const legacyKeySet = new Set();
+  allCases.forEach((c, idx) => {
+    if (c.uid) uidIndex.set(String(c.uid), idx);
+    legacyKeySet.add(`${c.deviceId || 'L'}_${c.date}_${c.time}_${c.gender}_${c.ageGroup}_${c.diagId}_${c.serial}`);
+  });
+
+  cleanCases.forEach(item => {
+    const hasUid = item._hasExplicitUid;
+    delete item._hasExplicitUid;
+
+    if (hasUid && uidIndex.has(item.uid)) {
+      const existingIdx = uidIndex.get(item.uid);
+      const existing = allCases[existingIdx];
+      // إذا قام الزميل بتعديل نفس الحالة لاحقاً (updatedAt أحدث)، نحدّثها تلقائياً
+      if ((item.updatedAt || 0) > (existing.updatedAt || 0)) {
+        allCases[existingIdx] = { ...existing, ...item };
+        stats.casesUpdated++;
+      } else {
+        stats.casesSkipped++;
+      }
+      return;
+    }
+
+    const legacyKey = `${item.deviceId || srcDevId}_${item.date}_${item.time}_${item.gender}_${item.ageGroup}_${item.diagId}_${item.serial}`;
+    if (!hasUid && legacyKeySet.has(legacyKey)) {
+      stats.casesSkipped++;
+      return;
+    }
+
+    if (!hasUid) item.uid = `${srcDevId}_imp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    allCases.push(item);
+    uidIndex.set(item.uid, allCases.length - 1);
+    legacyKeySet.add(legacyKey);
+    stats.casesAdded++;
+  });
+
+  if (parsed && !Array.isArray(parsed)) {
+    // 1. بيانات المرفق (لا تُستبدل أثناء دمج الفريق إذا كان خيار الحماية مفعّلاً)
+    if (parsed.facility && (mode === 'replace' || !keepFacility)) {
+      facility = { ...facility, ...parsed.facility };
+      syncFacilityUI();
+    }
+
+    // 2. دمج الفرز التمريضي و GHO حسب كل جهاز (byDevice) بدون تصفير أو تكرار
+    if (parsed.dailyOps && typeof parsed.dailyOps === 'object') {
+      Object.entries(parsed.dailyOps).forEach(([dt, incRaw]) => {
+        const incNorm = normalizeDailyOpsEntry(incRaw, srcDevId, srcName);
+        const incDevs = Object.entries(incNorm.byDevice || {});
+        if (!incDevs.length) return;
+
+        const curNorm = normalizeDailyOpsEntry(dailyOps[dt], getOrCreateDeviceId(), getCurrentMemberName());
+        let changed = false;
+        incDevs.forEach(([dev, v]) => {
+          const sumV = (v.triageF || 0) + (v.triageM || 0) + (v.ghoF || 0) + (v.ghoM || 0);
+          if (sumV === 0 && !curNorm.byDevice[dev]) return;
+          const prev = curNorm.byDevice[dev];
+          if (!prev || (v.updatedAt || 0) >= (prev.updatedAt || 0)) {
+            curNorm.byDevice[dev] = { ...v };
+            changed = true;
+          }
+        });
+        if (changed) {
+          dailyOps[dt] = recalcDailyOpsTotals(curNorm);
+          stats.opsDaysMerged++;
+        }
+      });
+    }
+
+    // 3. دمج الإحالات المستقلة بدون تكرار عبر uid
+    if (Array.isArray(parsed.standaloneRefs)) {
+      const refIdxMap = new Map();
+      standaloneRefs.forEach((r, idx) => {
+        const key = r.uid || `${r.date}_${r.type}_${r.gender}_${r.ageGroup}_${r.comment || ''}`;
+        refIdxMap.set(key, idx);
+      });
+      parsed.standaloneRefs.forEach(r => {
+        if (!r || !r.date || !r.type) return;
+        const cleanRef = {
+          uid: r.uid || `${srcDevId}_ref_${r.date}_${r.type}_${r.gender}_${r.ageGroup}_${(r.comment || '').slice(0, 12)}`,
+          deviceId: r.deviceId || srcDevId,
+          enteredBy: r.enteredBy || srcName,
+          updatedAt: Number(r.updatedAt) || 0,
+          date: String(r.date).slice(0, 10),
+          type: r.type,
+          gender: r.gender === 'Male' ? 'Male' : 'Female',
+          ageGroup: r.ageGroup || '19-49 years',
+          cash: Boolean(r.cash),
+          comment: String(r.comment || '')
+        };
+        if (refIdxMap.has(cleanRef.uid)) {
+          const exIdx = refIdxMap.get(cleanRef.uid);
+          if ((cleanRef.updatedAt || 0) > (standaloneRefs[exIdx].updatedAt || 0)) {
+            standaloneRefs[exIdx] = cleanRef;
+          }
+        } else {
+          standaloneRefs.push(cleanRef);
+          refIdxMap.set(cleanRef.uid, standaloneRefs.length - 1);
+          stats.refsAdded++;
+        }
+      });
+    }
+
+    // 4. دمج ملاحظات التشخيصات (HFMD / HFAM) بدون مسح الملاحظات السابقة
+    if (parsed.diagComments && typeof parsed.diagComments === 'object') {
+      Object.entries(parsed.diagComments).forEach(([diagId, v]) => {
+        if (!v || (!v.hfmd && !v.hfam)) return;
+        const cur = diagComments[diagId] || { hfmd: '', hfam: '' };
+        const mergeTxt = (a, b) => {
+          const sA = String(a || '').trim();
+          const sB = String(b || '').trim();
+          if (!sB) return sA;
+          if (!sA) return sB;
+          if (sA.includes(sB)) return sA;
+          return `${sA} | ${sB}`;
+        };
+        const nextHfmd = mergeTxt(cur.hfmd, v.hfmd);
+        const nextHfam = mergeTxt(cur.hfam, v.hfam);
+        if (nextHfmd !== cur.hfmd || nextHfam !== cur.hfam) {
+          diagComments[diagId] = { hfmd: nextHfmd, hfam: nextHfam };
+          stats.commentsMerged++;
+        }
+      });
+    }
+  }
+
+  return stats;
+}
+
+function renderMergeReportUI(resultsList, mode) {
+  const box = document.getElementById('mergeReportBox');
+  const content = document.getElementById('mergeReportContent');
+  if (!box || !content) return;
+
+  const totAdded = resultsList.reduce((a, r) => a + r.casesAdded, 0);
+  const totUpdated = resultsList.reduce((a, r) => a + r.casesUpdated, 0);
+  const totSkipped = resultsList.reduce((a, r) => a + r.casesSkipped, 0);
+  const totRefs = resultsList.reduce((a, r) => a + r.refsAdded, 0);
+
+  content.innerHTML = `
+    <div class="merge-summary-banner">
+      ${mode === 'replace' ? '🔄 تم استبدال البيانات:' : '🤝 اكتمل الدمج الجماعي:'}
+      +${totAdded} حالة جديدة${totUpdated ? ` | ✏️ ${totUpdated} محدّثة` : ''}${totSkipped ? ` | ⏭️ ${totSkipped} مكررة` : ''}${totRefs ? ` | 🚑 +${totRefs} إحالة` : ''}
+      — الإجمالي الآن: ${allCases.length} حالة
+    </div>
+    ${resultsList.map(r => `<div class="merge-file-row">
+      <strong>📄 ${r.file}</strong> <span class="member-tag">👤 ${r.sender}</span><br>
+      ✅ جديد: <b>${r.casesAdded}</b> | ✏️ محدّث: <b>${r.casesUpdated}</b> | ⏭️ مكرر: <b>${r.casesSkipped}</b> | 🚑 إحالات: <b>${r.refsAdded}</b> | 🩺 أيام فرز/GHO: <b>${r.opsDaysMerged}</b>
+    </div>`).join('')}
+  `;
+  box.classList.remove('hidden');
+}
+
+function applyBatchRestoredSources(sourcesArray) {
+  if (!sourcesArray.length) return showToast('⚠️ لم يتم قراءة أي ملف صالح');
+  const mode = document.querySelector('input[name="restoreMode"]:checked').value;
+  const keepFacility = document.getElementById('chkKeepFacilityOnMerge') ? document.getElementById('chkKeepFacilityOnMerge').checked : true;
 
   if (mode === 'replace') {
-    allCases = clean;
-  } else {
-    const keys = new Set(allCases.map(c => `${c.date}_${c.time}_${c.gender}_${c.ageGroup}_${c.diagId}_${c.serial}`));
-    clean.forEach(item => {
-      const k = `${item.date}_${item.time}_${item.gender}_${item.ageGroup}_${item.diagId}_${item.serial}`;
-      if (!keys.has(k)) { allCases.push(item); keys.add(k); }
-    });
-  }
-  if (parsed && !Array.isArray(parsed)) {
-    if (parsed.facility) { facility = { ...facility, ...parsed.facility }; syncFacilityUI(); }
-    if (parsed.dailyOps) dailyOps = { ...dailyOps, ...parsed.dailyOps };
-    if (Array.isArray(parsed.standaloneRefs)) standaloneRefs = mode === 'replace' ? parsed.standaloneRefs : [...standaloneRefs, ...parsed.standaloneRefs];
-    if (parsed.diagComments) diagComments = { ...diagComments, ...parsed.diagComments };
+    allCases = [];
+    dailyOps = {};
+    standaloneRefs = [];
+    diagComments = {};
   }
 
+  const results = sourcesArray.map(src => mergeSingleSourceIntoState(src.parsed, src.name, mode, keepFacility));
+
+  // ترتيب الحالات زمنياً وإعادة ترقيم التسلسل اليومي
+  allCases.sort((a, b) => (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time));
   recalculateDailySerials();
   saveAllState();
   refreshAllViews();
   renderQuickPicks();
-  closeModal('backupModal');
-  showToast(`✅ تمت الاستعادة بنجاح! الإجمالي: ${allCases.length} حالة`);
+
+  document.getElementById('modalTotalCases').textContent = allCases.length;
+  updateBackupScopePreview();
+  renderMergeReportUI(results, mode);
+
+  const totAdded = results.reduce((a, r) => a + r.casesAdded, 0);
+  showToast(`✅ تم دمج ${results.length} ملف بنجاح (+${totAdded} حالة جديدة | الإجمالي: ${allCases.length})`);
 }
 
-function handleUniversalRestore(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const NativeReader = (window.FileReader && window.FileReader.REAL_READER) ? window.FileReader.REAL_READER : window.FileReader;
-  const reader = new NativeReader();
-  if (/\.(xlsx|xls|csv)$/i.test(file.name)) {
-    reader.onload = ev => {
-      try {
-        const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-        applyRestoredData(rows);
-      } catch (err) { showToast('⚠️ تعذر قراءة ملف الإكسل'); }
-      e.target.value = '';
-    };
-    reader.readAsArrayBuffer(file);
-  } else {
-    reader.onload = ev => {
-      try { applyRestoredData(JSON.parse(String(ev.target.result).replace(/^\uFEFF/, '').trim())); }
-      catch (err) { showToast('⚠️ ملف JSON غير صالح'); }
-      e.target.value = '';
-    };
-    reader.readAsText(file);
-  }
+function readSingleRestoreFile(file) {
+  return new Promise(resolve => {
+    const NativeReader = (window.FileReader && window.FileReader.REAL_READER) ? window.FileReader.REAL_READER : window.FileReader;
+    const reader = new NativeReader();
+    if (/\.(xlsx|xls|csv)$/i.test(file.name)) {
+      reader.onload = ev => {
+        try {
+          const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+          resolve({ name: file.name, parsed: rows });
+        } catch (err) { resolve(null); }
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.onload = ev => {
+        try {
+          const parsed = JSON.parse(String(ev.target.result).replace(/^\uFEFF/, '').trim());
+          resolve({ name: file.name, parsed });
+        } catch (err) { resolve(null); }
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsText(file);
+    }
+  });
+}
+
+async function handleUniversalRestore(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  const loaded = await Promise.all(files.map(readSingleRestoreFile));
+  e.target.value = '';
+  const valid = loaded.filter(Boolean);
+  if (!valid.length) return showToast('⚠️ تعذر قراءة الملفات المختارة — تأكد أنها ملفات JSON أو Excel صالحة');
+  applyBatchRestoredSources(valid);
 }
 
 function restoreFromText() {
-  try { applyRestoredData(JSON.parse(document.getElementById('backupPasteArea').value.trim())); }
-  catch (err) { showToast('⚠️ النص الملصق غير صالح'); }
+  try {
+    const parsed = JSON.parse(document.getElementById('backupPasteArea').value.trim());
+    applyBatchRestoredSources([{ name: 'نص ملصق من الحافظة', parsed }]);
+  } catch (err) {
+    showToast('⚠️ النص الملصق غير صالح (تأكد من نسخ كود JSON كاملاً)');
+  }
 }
 
 window.addEventListener('DOMContentLoaded', initApp);
