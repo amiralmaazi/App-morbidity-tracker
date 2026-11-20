@@ -211,3 +211,6 @@ table.morbidity-table th { background: #e2e8f0; font-weight: 800; }
 .merge-file-row { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; margin-bottom: 6px; font-size: 12px; line-height: 1.5; }
 .merge-summary-banner { background: #0f766e; color: #fff; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; font-weight: 900; margin-bottom: 8px; }
 .member-tag { display: inline-block; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 1px 6px; border-radius: 5px; font-size: 10px; font-weight: 800; margin-top: 2px; }
+
+.sr-file-input { position: fixed; top: -200px; left: -200px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.merge-file-err { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; border-radius: 8px; padding: 7px 10px; margin-bottom: 6px; font-size: 12px; line-height: 1.5; }
