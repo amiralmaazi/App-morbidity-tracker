@@ -93,30 +93,60 @@
   </div>
 </div>
 
-<!-- نافذة النسخ الاحتياطي والاستعادة الشاملة -->
+<!-- نافذة دمج الفريق والنسخ الاحتياطي الأوفلاين -->
 <div id="backupModal" class="modal-backdrop hidden">
   <div class="modal-card">
     <div class="modal-head">
-      <h3>💾 مركز النسخ الاحتياطي والاستعادة الشامل</h3>
+      <h3>👥 مركز دمج الفريق والنسخ الاحتياطي الأوفلاين</h3>
       <button class="btn-action btn-pdf" onclick="closeModal('backupModal')">✖</button>
     </div>
-    <div class="panel-box">
-      <div class="panel-title">1. حفظ البيانات الحالية (<span id="modalTotalCases">0</span> حالة مسجلة):</div>
+
+    <div class="panel-box team-id-box">
+      <div class="panel-title">🪪 هوية جهازك في الفريق (تمنع تداخل أو حذف حالات الزملاء عند الدمج):</div>
       <div class="row-gap">
-        <button class="btn-action btn-excel flex-1" onclick="exportBackupJSON()">📥 حفظ ملف نسخة (.json)</button>
+        <input id="teamMemberNameInput" class="form-input flex-1" placeholder="اكتب اسمك أو دورك (مثال: د. أمير / ممرض الفرز)" onchange="saveTeamMemberName(this.value)">
+        <span id="deviceIdBadge" class="device-pill" title="المعرف الفريد لهذا الجهاز">ID: —</span>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div class="panel-title">1. إرسال بياناتك للمنسق أو حفظ نسخة احتياطية (<span id="modalScopeCount">0</span> حالة في النطاق / الإجمالي: <span id="modalTotalCases">0</span>):</div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label>نطاق البيانات المراد إرسالها (.json):</label>
+        <select id="backupExportScope" class="form-input" onchange="updateBackupScopePreview()">
+          <option value="day">📅 اليوم المحدد فقط (سريع للإرسال اليومي عبر واتساب)</option>
+          <option value="week">📆 الأسبوع التقريري الحالي (W1 - W5)</option>
+          <option value="month">🗓️ الشهر التقريري الحالي (دورة 26 → 25)</option>
+          <option value="all" selected>💾 جميع البيانات المحفوظة (نسخة احتياطية كاملة)</option>
+        </select>
+      </div>
+      <div class="row-gap">
+        <button class="btn-action btn-excel flex-1" onclick="exportBackupJSON()">📤 إرسال / حفظ ملف الفريق (.json)</button>
         <button class="btn-action btn-share flex-1" onclick="copyBackupToClipboard()">📋 نسخ الكود للحافظة</button>
       </div>
     </div>
+
     <div class="panel-box panel-green">
-      <div class="panel-title">2. استعادة بيانات سابقة (يدعم JSON و Excel .xlsx والنص):</div>
+      <div class="panel-title">2. دمج ملفات أعضاء الفريق دفعة واحدة (للمنسق) أو استعادة نسخة:</div>
       <div class="radio-row">
-        <label><input type="radio" name="restoreMode" value="merge" checked> دمج بدون تكرار</label>
-        <label><input type="radio" name="restoreMode" value="replace"> استبدال الكل</label>
+        <label><input type="radio" name="restoreMode" value="merge" checked> 🤝 دمج ذكي للفريق (يحفظ حالات الجميع بدون تكرار)</label>
+        <label><input type="radio" name="restoreMode" value="replace"> ⚠️ استبدال الكل</label>
       </div>
-      <button class="btn-action btn-backup full-btn" onclick="document.getElementById('restoreInput').click()">📂 اختيار ملف من الهاتف (JSON / Excel / TXT)</button>
-      <input type="file" id="restoreInput" class="hidden" onchange="handleUniversalRestore(event)">
-      <textarea id="backupPasteArea" class="backup-textarea" placeholder="أو الصق كود JSON هنا مباشرة..."></textarea>
-      <button class="btn-action btn-excel full-btn" onclick="restoreFromText()">✅ استعادة من النص الملصق</button>
+      <div style="margin-bottom:8px;">
+        <label class="inline-check">
+          <input type="checkbox" id="chkKeepFacilityOnMerge" checked> 🔒 الاحتفاظ بإعدادات المرفق واسم المنسق الحالية (لا تستبدلها ببيانات المُرسل)
+        </label>
+      </div>
+      <button class="btn-action btn-backup full-btn" onclick="document.getElementById('restoreInput').click()">📂 اختيار ملف أو عدة ملفات من الفريق دفعة واحدة (JSON / Excel)</button>
+      <input type="file" id="restoreInput" class="hidden" multiple accept=".json,.txt,.xlsx,.xls,.csv" onchange="handleUniversalRestore(event)">
+      <textarea id="backupPasteArea" class="backup-textarea" placeholder="أو الصق كود JSON من واتساب هنا مباشرة..."></textarea>
+      <button class="btn-action btn-excel full-btn" onclick="restoreFromText()">✅ دمج / استعادة من النص الملصق</button>
+    </div>
+
+    <div id="mergeReportBox" class="panel-box merge-report-box hidden">
+      <div class="panel-title" style="color:#0f766e;">📊 تقرير نتيجة الدمج الجماعي:</div>
+      <div id="mergeReportContent"></div>
+      <button class="btn-action btn-excel full-btn" style="margin-top:8px;" onclick="closeModal('backupModal'); exportOfficialExcel();">📊 تصدير Excel الرسمي الموحد الآن</button>
     </div>
   </div>
 </div>
@@ -175,7 +205,7 @@
     <button id="btnTemplateMgr" class="btn-action btn-edit" onclick="openTemplateModal()">📄 القالب</button>
     <button class="btn-action btn-excel" onclick="exportOfficialExcel()">📊 Excel الرسمي</button>
     <button class="btn-action btn-pdf" onclick="openPdfStudio()">📐 معاينة و PDF</button>
-    <button class="btn-action btn-share" onclick="openBackupModal()">💾 نسخ / استعادة</button>
+    <button class="btn-action btn-share" onclick="openBackupModal()">👥 دمج الفريق / نسخ</button>
   </div>
 </header>
 
@@ -346,6 +376,7 @@
         </div>
       </div>
     </div>
+    <div id="opsTeamBreakdownBox" class="card hidden" style="background:#f0fdfa;border-color:#99f6e4;"></div>
 
     <div class="card">
       <div class="section-title"><span>🚑 إضافة إحالة مستقلة سريعة (تُضاف تلقائياً لجدول Referrals اليومي والأسبوعي والشهري)</span></div>
