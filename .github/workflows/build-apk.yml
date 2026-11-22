@@ -51,17 +51,16 @@ jobs:
             sed -i 's|</widget>|    <icon src="icon.png" />\n</widget>|g' app/config.xml
           fi
 
-          # Bundle offline XLSX, html2pdf & JSZip libraries inside APK
+          # Bundle offline XLSX & JSZip libraries inside APK
           mkdir -p app/www/lib
           curl -sL https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js -o app/www/lib/xlsx.full.min.js
-          curl -sL https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js -o app/www/lib/html2pdf.bundle.min.js
           curl -sL https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js -o app/www/lib/jszip.min.js
           sed -i 's|https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js|lib/xlsx.full.min.js|g' app/www/index.html
-          sed -i 's|https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js|lib/html2pdf.bundle.min.js|g' app/www/index.html
           sed -i 's|https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js|lib/jszip.min.js|g' app/www/index.html
 
           cd app
           cordova platform add android@13.0.0
+          cordova plugin add cordova-plugin-file
           cordova plugin add cordova-plugin-x-socialsharing
           cordova plugin add cordova-plugin-androidx-adapter
 
