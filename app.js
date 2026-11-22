@@ -10,7 +10,8 @@ const KEYS = {
   FACILITY: 'ECHO23028_FACILITY_V2',
   PINS: 'ECHO23028_PINS_V2',
   DEVICE_ID: 'ECHO23028_DEVICE_ID_V1',
-  MEMBER_NAME: 'ECHO23028_MEMBER_NAME_V1'
+  MEMBER_NAME: 'ECHO23028_MEMBER_NAME_V1',
+  CYCLES: 'ECHO23028_CYCLES_V1'
 };
 
 let deviceId = '';
@@ -96,6 +97,7 @@ let allCases = [];
 let dailyOps = {};       // { 'YYYY-MM-DD': { triageF, triageM, ghoF, ghoM } }
 let standaloneRefs = []; // [{ uid, date, type, gender, ageGroup, cash, comment }]
 let diagComments = {};   // { diagId: { hfmd: '', hfam: '' } }
+let reportingCycles = {}; // { 'YYYY-MM': { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' } }
 
 let facility = {
   presetId: 'almaqayit',
@@ -104,7 +106,7 @@ let facility = {
   dist: 'Abs',
   shortName: 'Almaqayit HU',
   clusterName: 'Almaqayit HU/الوحدة الصحية المقايط',
-  doctor: 'D/Kholood',
+  doctor: 'Dr. AmirAl_maazi',
   title: 'HF Medical Doctor Officer'
 };
 
@@ -142,9 +144,38 @@ function getArabicDayName(dateStr) {
   return isNaN(d) ? '' : days[d.getDay()];
 }
 
-// دورة الشهر التقريري الرسمية: من يوم 26 في الشهر السابق إلى يوم 25 في الشهر الحالي
+// دورة الشهر التقريري (تدعم الضبط اليدوي لكل شهر، والافتراضي: من 26 الشهر السابق إلى 25 الشهر الحالي)
+function getDefaultReportingMonthBounds(monthYYYYMM) {
+  const [yr, mo] = String(monthYYYYMM || '').split('-').map(Number);
+  const py = mo === 1 ? yr - 1 : yr;
+  const pm = mo === 1 ? 12 : mo - 1;
+  return {
+    startISO: `${py}-${String(pm).padStart(2, '0')}-26`,
+    endISO: `${yr}-${String(mo).padStart(2, '0')}-25`,
+    isCustom: false
+  };
+}
+
+function getAppReportingMonthBounds(monthYYYYMM) {
+  const custom = reportingCycles && reportingCycles[monthYYYYMM];
+  if (custom && custom.start && custom.end && custom.start <= custom.end) {
+    return { startISO: custom.start, endISO: custom.end, isCustom: true };
+  }
+  return getDefaultReportingMonthBounds(monthYYYYMM);
+}
+
 function getAppReportingMonthForDate(dateStr) {
-  const [yr, mo, dy] = String(dateStr || '').split('-').map(Number);
+  const ds = String(dateStr || '').slice(0, 10);
+  if (ds && reportingCycles && typeof reportingCycles === 'object') {
+    const keys = Object.keys(reportingCycles).sort();
+    for (const ym of keys) {
+      const c = reportingCycles[ym];
+      if (c && c.start && c.end && ds >= c.start && ds <= c.end) {
+        return ym;
+      }
+    }
+  }
+  const [yr, mo, dy] = ds.split('-').map(Number);
   if (!yr || !mo || !dy) return new Date().toISOString().slice(0, 7);
   if (dy >= 26) {
     const ny = mo === 12 ? yr + 1 : yr;
@@ -152,16 +183,6 @@ function getAppReportingMonthForDate(dateStr) {
     return `${ny}-${String(nm).padStart(2, '0')}`;
   }
   return `${yr}-${String(mo).padStart(2, '0')}`;
-}
-
-function getAppReportingMonthBounds(monthYYYYMM) {
-  const [yr, mo] = String(monthYYYYMM || '').split('-').map(Number);
-  const py = mo === 1 ? yr - 1 : yr;
-  const pm = mo === 1 ? 12 : mo - 1;
-  return {
-    startISO: `${py}-${String(pm).padStart(2, '0')}-26`,
-    endISO: `${yr}-${String(mo).padStart(2, '0')}-25`
-  };
 }
 
 function addAppDaysISO(dateStr, days) {
@@ -196,7 +217,7 @@ function getReportingWeekNumber(dateStr) {
   return 'W' + Math.min(5, Math.floor(diff / 7) + 1);
 }
 
-function nz(val) { return val > 0 ? `<td class="cell-nz">${val}</td>` : `<td>0</td>`; }
+function nz(val) { return val > 0 ? `<td class="tpl-nz">${val}</td>` : `<td class="tpl-zero">0</td>`; }
 
 // -------------------- التخزين الدائم --------------------
 function saveAllState() {
@@ -206,12 +227,13 @@ function saveAllState() {
   try { localStorage.setItem(KEYS.COMMENTS, JSON.stringify(diagComments)); } catch (e) {}
   try { localStorage.setItem(KEYS.FACILITY, JSON.stringify(facility)); } catch (e) {}
   try { localStorage.setItem(KEYS.PINS, JSON.stringify(pinned)); } catch (e) {}
+  try { localStorage.setItem(KEYS.CYCLES, JSON.stringify(reportingCycles)); } catch (e) {}
   try {
     const req = indexedDB.open('ECHO23028_DB', 1);
     req.onupgradeneeded = e => e.target.result.createObjectStore('store');
     req.onsuccess = e => {
       const tx = e.target.result.transaction('store', 'readwrite');
-      tx.objectStore('store').put(JSON.stringify({ allCases, dailyOps, standaloneRefs, diagComments, facility }), 'snapshot');
+      tx.objectStore('store').put(JSON.stringify({ allCases, dailyOps, standaloneRefs, diagComments, facility, reportingCycles }), 'snapshot');
     };
   } catch (e) {}
 }
@@ -225,6 +247,16 @@ function loadAllState(cb) {
   try { const x = localStorage.getItem(KEYS.COMMENTS); if (x) diagComments = JSON.parse(x); } catch (e) {}
   try { const x = localStorage.getItem(KEYS.FACILITY); if (x) facility = { ...facility, ...JSON.parse(x) }; } catch (e) {}
   try { const x = localStorage.getItem(KEYS.PINS); if (x) pinned = { ...pinned, ...JSON.parse(x) }; } catch (e) {}
+  try { const x = localStorage.getItem(KEYS.CYCLES); if (x) reportingCycles = JSON.parse(x) || {}; } catch (e) {}
+
+  // تحديث اسم الطبيب الرسمي لوحدة المقايط تلقائياً إلى Dr. AmirAl_maazi إذا كان يحمل القيمة الافتراضية القديمة
+  if (facility.presetId === 'almaqayit' || String(facility.shortName || '').toLowerCase().includes('almaqayit')) {
+    const oldDoc = String(facility.doctor || '').trim();
+    if (!oldDoc || oldDoc === 'D/Kholood' || oldDoc === 'Dr.Sumaia' || oldDoc === 'Dr.') {
+      facility.doctor = 'Dr. AmirAl_maazi';
+      try { localStorage.setItem(KEYS.FACILITY, JSON.stringify(facility)); } catch (e) {}
+    }
+  }
 
   // Ensure all local records carry deviceId & normalized dailyOps breakdown
   const myDev = getOrCreateDeviceId();
@@ -421,13 +453,135 @@ function switchTab(tab) {
   if (tab === 'analytics') renderAnalytics();
 }
 
+function updateCycleBadgesUI() {
+  const monthVal = (document.getElementById('reportMonthPicker') && document.getElementById('reportMonthPicker').value)
+    || getAppReportingMonthForDate(document.getElementById('workDate').value);
+  const { startISO, endISO, isCustom } = getAppReportingMonthBounds(monthVal);
+  const shortSpan = `${fmtShortDate(startISO).slice(0, -5)} → ${fmtShortDate(endISO).slice(0, -5)}`;
+  const btn = document.getElementById('btnCyclePill');
+  if (btn) btn.textContent = `🗓️ الدورة: ${shortSpan}${isCustom ? ' ✏️' : ''}`;
+  const chip = document.getElementById('reportCycleBadge');
+  if (chip) chip.textContent = `📅 دورة ${monthVal}: ${fmtShortDate(startISO)} → ${fmtShortDate(endISO)}${isCustom ? ' (مضبوطة يدوياً)' : ' (افتراضي 26→25)'}`;
+}
+
 function onDateChange() {
   const dateStr = document.getElementById('workDate').value;
   const repMonth = getAppReportingMonthForDate(dateStr);
   document.getElementById('dayWeekLabel').textContent = `${getArabicDayName(dateStr)} | ${getReportingWeekNumber(dateStr)} (دورة ${repMonth})`;
   document.getElementById('reportMonthPicker').value = repMonth;
   document.querySelectorAll('.opsDateLbl').forEach(el => el.textContent = dateStr);
+  updateCycleBadgesUI();
   refreshAllViews();
+}
+
+function onReportMonthChange() {
+  updateCycleBadgesUI();
+  renderReports();
+}
+
+// -------------------- نافذة ضبط الدورة الشهرية يدوياً --------------------
+function openCycleModal() {
+  const activeMonth = (document.getElementById('reportMonthPicker') && document.getElementById('reportMonthPicker').value)
+    || getAppReportingMonthForDate(document.getElementById('workDate').value);
+  document.getElementById('cycleMonthSelect').value = activeMonth;
+  onCycleModalMonthChange();
+  renderSavedCyclesList();
+  openModal('cycleModal');
+}
+
+function onCycleModalMonthChange() {
+  const ym = document.getElementById('cycleMonthSelect').value;
+  if (!ym) return;
+  const { startISO, endISO } = getAppReportingMonthBounds(ym);
+  document.getElementById('cycleStartInput').value = startISO;
+  document.getElementById('cycleEndInput').value = endISO;
+  previewCycleWeeksUI();
+}
+
+function previewCycleWeeksUI() {
+  const startISO = document.getElementById('cycleStartInput').value;
+  const endISO = document.getElementById('cycleEndInput').value;
+  const box = document.getElementById('cycleWeeksPreview');
+  if (!startISO || !endISO) {
+    box.innerHTML = '<span style="color:#dc2626;">⚠️ حدد تاريخ البداية وتاريخ النهاية.</span>';
+    return;
+  }
+  if (startISO > endISO) {
+    box.innerHTML = '<span style="color:#dc2626;">⚠️ تاريخ البداية يجب أن يكون قبل تاريخ النهاية!</span>';
+    return;
+  }
+  const totalDays = diffAppDaysISO(startISO, endISO) + 1;
+  let rows = `<div style="font-weight:900;color:#5b21b6;margin-bottom:4px;">📅 معاينة توزيع الأسابيع (${totalDays} يوماً):</div>`;
+  for (let w = 0; w < 5; w++) {
+    const ws = addAppDaysISO(startISO, w * 7);
+    if (ws > endISO) {
+      rows += `<div class="cycle-wk-row"><strong>W${w + 1}</strong><span style="color:#94a3b8;">(فارغ — خارج نطاق الدورة)</span></div>`;
+    } else {
+      const rawEnd = addAppDaysISO(ws, 6);
+      const we = (w === 4) ? endISO : (rawEnd <= endISO ? rawEnd : endISO);
+      const dCnt = diffAppDaysISO(ws, we) + 1;
+      rows += `<div class="cycle-wk-row"><strong>W${w + 1}</strong><span dir="ltr">${fmtShortDate(ws)} → ${fmtShortDate(we)} (${dCnt}d)</span></div>`;
+    }
+  }
+  box.innerHTML = rows;
+}
+
+function saveManualCycleSettings() {
+  const ym = document.getElementById('cycleMonthSelect').value;
+  const startISO = document.getElementById('cycleStartInput').value;
+  const endISO = document.getElementById('cycleEndInput').value;
+  if (!ym || !startISO || !endISO) return showToast('⚠️ يرجى تحديد الشهر وتاريخي البداية والنهاية');
+  if (startISO > endISO) return showToast('⚠️ تاريخ البداية يجب أن يسبق تاريخ النهاية');
+
+  reportingCycles[ym] = { start: startISO, end: endISO };
+  saveAllState();
+  document.getElementById('reportMonthPicker').value = ym;
+  updateCycleBadgesUI();
+  onDateChange();
+  renderSavedCyclesList();
+  closeModal('cycleModal');
+  showToast(`✅ تم حفظ حدود دورة ${ym}: ${fmtShortDate(startISO)} → ${fmtShortDate(endISO)}`);
+}
+
+function resetManualCycleForMonth() {
+  const ym = document.getElementById('cycleMonthSelect').value;
+  if (!ym) return;
+  delete reportingCycles[ym];
+  saveAllState();
+  onCycleModalMonthChange();
+  renderSavedCyclesList();
+  updateCycleBadgesUI();
+  onDateChange();
+  showToast(`🔄 تمت إعادة دورة ${ym} إلى الوضع الافتراضي (26 → 25)`);
+}
+
+function selectSavedCycle(ym) {
+  document.getElementById('cycleMonthSelect').value = ym;
+  onCycleModalMonthChange();
+}
+
+function deleteSavedCycle(ym) {
+  delete reportingCycles[ym];
+  saveAllState();
+  renderSavedCyclesList();
+  onCycleModalMonthChange();
+  updateCycleBadgesUI();
+  onDateChange();
+  showToast(`🗑️ تم حذف الضبط اليدوي لدورة ${ym}`);
+}
+
+function renderSavedCyclesList() {
+  const listEl = document.getElementById('savedCyclesList');
+  if (!listEl) return;
+  const entries = Object.entries(reportingCycles).sort((a, b) => b[0].localeCompare(a[0]));
+  if (!entries.length) {
+    listEl.innerHTML = '<div style="font-size:12px;color:#64748b;">لا توجد دورات مضبوطة يدوياً بعد — يُستخدم النطاق الافتراضي (26 → 25).</div>';
+    return;
+  }
+  listEl.innerHTML = entries.map(([ym, c]) => `<div class="mini-item">
+    <span onclick="selectSavedCycle('${ym}')" style="cursor:pointer;">🗓️ <strong>${ym}</strong>: <span dir="ltr">${fmtShortDate(c.start)} → ${fmtShortDate(c.end)}</span></span>
+    <button class="btn-action btn-pdf" style="padding:4px 8px;" onclick="deleteSavedCycle('${ym}')">حذف</button>
+  </div>`).join('');
 }
 
 function refreshAllViews() {
@@ -1002,15 +1156,35 @@ function buildReportDataset(scopeOverride) {
   return { scope, label, cases, refs, triageF, triageM, ghoF, ghoM, edewsDaily, edewsWeekly };
 }
 
-// -------------------- بناء الجداول الرسمية الكاملة (100% مطابقة للملف) --------------------
+// -------------------- بناء الاستمارة الرسمية بنفس شكل وألوان القالب الرسمي 100% --------------------
 function renderReports() {
+  updateCycleBadgesUI();
   const ds = buildReportDataset();
-  const { cases, refs, triageF, triageM, ghoF, ghoM, edewsDaily, edewsWeekly, label } = ds;
+  const { scope, cases, refs, triageF, triageM, ghoF, ghoM, edewsDaily, edewsWeekly, label } = ds;
 
-  const totF = cases.filter(isFemaleCase).length;
-  const totM = cases.filter(isMaleCase).length;
+  const workDate = document.getElementById('workDate').value;
+  const monthVal = document.getElementById('reportMonthPicker').value || getAppReportingMonthForDate(workDate);
+  const { startISO: mStart, endISO: mEnd } = getAppReportingMonthBounds(monthVal);
 
-  // 1. Beneficiaries Table (NEW BENEFICIARIES + FOLLOW UP = Total Consultations - New Beneficiaries)
+  let formHeading = 'DAILY MORBIDITY FORM';
+  let formDateDisplay = fmtShortDate(workDate);
+  if (['W1', 'W2', 'W3', 'W4', 'W5'].includes(scope)) {
+    const wIdx = Number(scope.slice(1)) - 1;
+    const wb = getAppReportingWeekBounds(monthVal, wIdx);
+    formHeading = `WEEKLY MORBIDITY FORM (${scope})`;
+    formDateDisplay = wb.isEmpty ? 'Out of Cycle' : `${fmtShortDate(wb.wkStart)} - ${fmtShortDate(wb.wkEnd)}`;
+  } else if (scope === 'month') {
+    formHeading = 'MONTHLY MORBIDITY FORM';
+    formDateDisplay = `${fmtShortDate(mStart)} - ${fmtShortDate(mEnd)}`;
+  } else if (scope === 'custom') {
+    formHeading = 'CUSTOM MORBIDITY FORM';
+    formDateDisplay = `${fmtShortDate(document.getElementById('rangeStart').value)} - ${fmtShortDate(document.getElementById('rangeEnd').value)}`;
+  } else if (scope === 'all') {
+    formHeading = 'CUMULATIVE MORBIDITY FORM';
+    formDateDisplay = 'All Saved Records';
+  }
+
+  // 1. Beneficiaries Table (NEW BENEFICIARIES #B7DDE8 + FOLLOW UP #FBD4B4 + Total #C4BD97)
   let benRowsHtml = '';
   const benSums = new Array(15).fill(0);
   ['Female', 'Male'].forEach(g => {
@@ -1029,10 +1203,17 @@ function renderReports() {
     });
     benSums[13] += fuB;
     benSums[14] += (newB + fuB);
-    benRowsHtml += `<tr><td><b>${g[0]}</b></td>${nArr.map(nz).join('')}<td class="th-total"><b>${newB}</b></td>${fArr.map(nz).join('')}<td class="th-total"><b>${fuB}</b></td><td class="th-total"><b>${newB+fuB}</b></td></tr>`;
+    benRowsHtml += `<tr>
+      <td class="tpl-sand">${g[0]}</td>
+      ${nArr.map(nz).join('')}
+      <td class="tpl-tan">${newB}</td>
+      ${fArr.map(nz).join('')}
+      <td class="tpl-tan">${fuB}</td>
+      <td class="tpl-tan">${newB + fuB}</td>
+    </tr>`;
   });
 
-  // 2. Morbidity Matrix (1-55 + Category Subtotals A, a, b, B, C, D, E + Shaded Blocked Cells + Comments)
+  // 2. Morbidity Matrix (1-55 + Category A-E #C6D9F0 red titles + Subcat a-b #DDD9C3 red titles + Blocked #C4BD97 + Total #95B3D7)
   const diagRowValues = {};
   DIAGNOSES.forEach(d => {
     const dCases = cases.filter(c => c.diagId === d.id);
@@ -1056,7 +1237,6 @@ function renderReports() {
     ids.forEach(id => diagRowValues[id].forEach((v, i) => s[i] += v));
     return s;
   };
-
   const rangeIds = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
   const sub_a = sumIds(rangeIds(1, 29));
   const sub_b = sumIds(rangeIds(30, 34));
@@ -1073,18 +1253,18 @@ function renderReports() {
   let matBody = '';
   DIAGNOSES.forEach(d => {
     if (d.id === 1) {
-      matBody += renderSubtotalRow('A', 'Communicable Diseases', cat_A, 'cat-row');
-      matBody += renderSubtotalRow('a', 'Notifiable Diseases', sub_a, 'subcat-row');
+      matBody += renderSubtotalRow('A', 'Communicable Diseases', cat_A, 'tpl-cat-row');
+      matBody += renderSubtotalRow('a', 'Notifiable Diseases', sub_a, 'tpl-subcat-row');
     } else if (d.id === 30) {
-      matBody += renderSubtotalRow('b', 'Other Infectious / Communicable Diseases', sub_b, 'subcat-row');
+      matBody += renderSubtotalRow('b', 'Other Infectious / Communicable Diseases', sub_b, 'tpl-subcat-row');
     } else if (d.id === 35) {
-      matBody += renderSubtotalRow('B', 'Non-Communicable Diseases', cat_B, 'cat-row');
+      matBody += renderSubtotalRow('B', 'Non-Communicable Diseases', cat_B, 'tpl-cat-row');
     } else if (d.id === 48) {
-      matBody += renderSubtotalRow('C', 'Reproductive Health (Not include Routine Preventive services)', cat_C, 'cat-row');
+      matBody += renderSubtotalRow('C', 'Reproductive Health (Not include Routine Preventive services)', cat_C, 'tpl-cat-row');
     } else if (d.id === 50) {
-      matBody += renderSubtotalRow('D', 'Trauma-Related Injuries', cat_D, 'cat-row');
+      matBody += renderSubtotalRow('D', 'Trauma-Related Injuries', cat_D, 'tpl-cat-row');
     } else if (d.id === 53) {
-      matBody += renderSubtotalRow('E', 'Others', cat_E, 'cat-row');
+      matBody += renderSubtotalRow('E', 'Others', cat_E, 'tpl-cat-row');
     }
 
     const vals = diagRowValues[d.id];
@@ -1092,16 +1272,18 @@ function renderReports() {
       if (idx < 24) {
         const ag = AGE_GROUPS[Math.floor((idx % 12) / 2)];
         const gen = idx % 2 === 0 ? 'Female' : 'Male';
-        if (!isDiagnosisCellAllowed(d.id, ag, gen)) return `<td class="cell-blocked">—</td>`;
+        if (!isDiagnosisCellAllowed(d.id, ag, gen)) return `<td class="tpl-blocked">.</td>`;
+        return nz(v);
       }
-      return nz(v);
+      if (idx === 24 || idx === 25) return `<td class="tpl-tot-fm">${v}</td>`;
+      return `<td class="tpl-tot-all">${v}</td>`;
     }).join('');
     const cmt = diagComments[d.id] || {};
     matBody += `<tr><td><b>${d.id}</b></td><td class="diag-name-cell">${d.name}</td>${cellsHtml}<td class="cmt-cell">${cmt.hfmd || ''}</td><td class="cmt-cell">${cmt.hfam || ''}</td></tr>`;
   });
-  matBody += `<tr class="th-total" style="font-weight:900;"><td colspan="2">GRAND TOTAL</td>${grandTot.map(v => `<td>${v}</td>`).join('')}<td></td><td></td></tr>`;
+  matBody += `<tr class="tpl-grand-row"><td colspan="2">Total</td>${grandTot.map(v => `<td>${v}</td>`).join('')}<td></td><td></td></tr>`;
 
-  // 3. Referrals Table (8 Rows + Cash Assistance Row)
+  // 3. Referrals Table (Rows 78-89: #C4BD97 headers, #D8D8D8 row labels, #DDD9C3 F/M total, #C4BD97 All total & blocked cells)
   const cashSums = new Array(15).fill(0);
   const refRowsHtml = REFERRAL_TYPES.map(rt => {
     const rList = refs.filter(r => r.type === rt.id);
@@ -1115,30 +1297,30 @@ function renderReports() {
       const mCash = rList.filter(r => r.ageGroup === ag && isMaleCase(r) && r.cash).length;
       cashSums[i * 2] += fCash; cashSums[i * 2 + 1] += mCash;
 
-      cells.push(isReferralCellAllowed(rt.id, ag, 'Female') ? nz(fCnt) : `<td class="cell-blocked">—</td>`);
-      cells.push(isReferralCellAllowed(rt.id, ag, 'Male') ? nz(mCnt) : `<td class="cell-blocked">—</td>`);
+      cells.push(isReferralCellAllowed(rt.id, ag, 'Female') ? nz(fCnt) : `<td class="tpl-blocked">.</td>`);
+      cells.push(isReferralCellAllowed(rt.id, ag, 'Male') ? nz(mCnt) : `<td class="tpl-blocked">.</td>`);
     });
     const rCashF = rList.filter(r => isFemaleCase(r) && r.cash).length;
     const rCashM = rList.filter(r => isMaleCase(r) && r.cash).length;
     cashSums[12] += rCashF; cashSums[13] += rCashM; cashSums[14] += (rCashF + rCashM);
     const cmts = rList.map(r => r.comment).filter(Boolean).join('; ');
-    return `<tr><td class="diag-name-cell">${rt.label}</td>${cells.join('')}<td class="th-total"><b>${rf}</b></td><td class="th-total"><b>${rm}</b></td><td class="th-total"><b>${rf+rm}</b></td><td class="cmt-cell">${cmts}</td></tr>`;
+    return `<tr><td class="tpl-gray-lbl">${rt.label}</td>${cells.join('')}<td class="tpl-tot-fm">${rf}</td><td class="tpl-tot-fm">${rm}</td><td class="tpl-tot-all">${rf + rm}</td><td class="cmt-cell">${cmts}</td></tr>`;
   }).join('');
 
-  // 4. Special Groups Table (IDPs, Migrants, Disability, Host)
-  const spRowsHtml = SPECIAL_GROUPS.map(sg => {
+  // 4. Special Groups Table (IDPs, Migrants, Disability as in template.xlsx)
+  const spRowsHtml = ['IDPs', 'Migrants', 'Disability'].map(sg => {
     const uF = cases.filter(c => c.specialGroup === sg && UNDER_18_AGES.includes(c.ageGroup) && isFemaleCase(c)).length;
     const uM = cases.filter(c => c.specialGroup === sg && UNDER_18_AGES.includes(c.ageGroup) && isMaleCase(c)).length;
     const oF = cases.filter(c => c.specialGroup === sg && OVER_18_AGES.includes(c.ageGroup) && isFemaleCase(c)).length;
     const oM = cases.filter(c => c.specialGroup === sg && OVER_18_AGES.includes(c.ageGroup) && isMaleCase(c)).length;
-    return `<tr><td style="text-align:left;font-weight:800;">${sg}</td>${nz(uF)}${nz(uM)}${nz(oF)}${nz(oM)}<td class="th-total"><b>${uF+uM+oF+oM}</b></td></tr>`;
+    return `<tr><td style="text-align:left;font-weight:800;padding-left:6px;">${sg}</td>${nz(uF)}${nz(uM)}${nz(oF)}${nz(oM)}<td class="tpl-tot-all">${uF + uM + oF + oM}</td></tr>`;
   }).join('');
 
   // 5. Restricted-Use Drugs (5 Drugs)
   const drugCounts = RESTRICTED_DRUGS.map(dr => cases.filter(c => c.restrictedDrugs && c.restrictedDrugs.includes(dr.id)).length);
   const drugTotal = drugCounts.reduce((a, b) => a + b, 0);
 
-  // 6. IMCI (Vitamin A & Auto Total IMCI <5Y) + Elderly >65 + GHO
+  // 6. IMCI + Elderly (>65 Yrs) + GHO
   const vitA_06F = cases.filter(c => c.vitA && c.ageGroup === '0-6 months' && isFemaleCase(c)).length;
   const vitA_06M = cases.filter(c => c.vitA && c.ageGroup === '0-6 months' && isMaleCase(c)).length;
   const vitA_759F = cases.filter(c => c.vitA && c.ageGroup === '7-59 months' && isFemaleCase(c)).length;
@@ -1152,119 +1334,222 @@ function renderReports() {
   const eldF = cases.filter(c => c.elderly65 && isFemaleCase(c)).length;
   const eldM = cases.filter(c => c.elderly65 && isMaleCase(c)).length;
 
+  const logoHtml = (typeof ECHO_OFFICIAL_LOGO_URI !== 'undefined' && ECHO_OFFICIAL_LOGO_URI)
+    ? `<img src="${ECHO_OFFICIAL_LOGO_URI}" alt="Official Logo" class="echo-logo-img">`
+    : '';
+
   document.getElementById('printableReportArea').innerHTML = `
-    <div class="official-header-box">
-      <div class="official-title-row">
-        <div>
-          <div style="font-size:13px;font-weight:900;">DAILY / WEEKLY / MONTHLY MORBIDITY - IMCI FORM (${facility.project})</div>
-          <div style="font-size:9.5px;font-weight:800;color:#0f766e;">${label} | TOTAL CONSULTATIONS: ${cases.length} (F: ${totF} | M: ${totM})</div>
+    <div class="echo-canvas">
+      <!-- Top Strip (Rows 2-5 of template.xlsx) -->
+      <div class="echo-top-strip">
+        <div class="echo-brand-block">
+          <div>
+            <div class="echo-brand-title">Morbidity-IMCI<br>Daily Form</div>
+            <div class="echo-brand-sub">${facility.project || 'ECHO 23028'}</div>
+          </div>
+          ${logoHtml}
         </div>
-        <div style="font-size:10px;font-weight:900;background:#e2e8f0;padding:3px 8px;border-radius:4px;">NOTE: ONLY 1 MAIN DIAGNOSIS PER PATIENT</div>
+        <div>
+          <table class="morbidity-table">
+            <thead>
+              <tr>
+                <th rowspan="2" class="tpl-sand">Gender</th>
+                <th colspan="6" class="tpl-ben-new">NEW BENEFICIARIES</th>
+                <th rowspan="2" class="tpl-tan">Total</th>
+                <th colspan="6" class="tpl-ben-fu">FOLLOW UP</th>
+                <th rowspan="2" class="tpl-tan">Total</th>
+                <th rowspan="2" class="tpl-tan">Total</th>
+              </tr>
+              <tr>
+                ${AGE_LABELS_SHORT.map(a => `<th class="tpl-ben-new">${a}</th>`).join('')}
+                ${AGE_LABELS_SHORT.map(a => `<th class="tpl-ben-fu">${a}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${benRowsHtml}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="official-meta-grid">
-        <div class="official-meta-item"><span class="official-meta-label">Collection Site</span><span class="official-meta-val">${facility.shortName || '—'}</span></div>
-        <div class="official-meta-item"><span class="official-meta-label">Governorate / District</span><span class="official-meta-val">${facility.gov || '—'} / ${facility.dist || '—'}</span></div>
-        <div class="official-meta-item"><span class="official-meta-label">Collected By</span><span class="official-meta-val">${facility.doctor || '—'}</span></div>
-        <div class="official-meta-item"><span class="official-meta-label">Cluster Facility Name</span><span class="official-meta-val">${facility.clusterName || '—'}</span></div>
-      </div>
-    </div>
 
-    <div class="report-row-split">
-      <div style="flex:2.2;min-width:480px;">
-        <div class="report-subhead">1. Beneficiaries Summary (NEW BENEFICIARIES &amp; FOLLOW UP)</div>
-        <div class="table-scroll"><table class="morbidity-table">
+      <!-- Meta, Main Banner & Triage Strip (Rows 8-10 of template.xlsx) -->
+      <div class="echo-meta-strip">
+        <div class="echo-meta-left">
+          <table>
+            <tr><td class="echo-meta-lbl">COLLECTION SITE:</td><td>${facility.shortName || '—'}</td></tr>
+            <tr><td class="echo-meta-lbl">DATE:</td><td>${formDateDisplay}</td></tr>
+            <tr><td class="echo-meta-lbl">COLLECTED BY:</td><td>${facility.doctor || '—'}</td></tr>
+          </table>
+        </div>
+        <div class="echo-meta-center">
+          <div class="echo-form-main-title">${formHeading}</div>
+          <div class="echo-form-scope-sub">${label} | Total Consultations: ${cases.length}</div>
+          <div class="echo-form-note">NOTE: ONLY 1 MAIN DIAGNOSIS PER PATIENT.</div>
+        </div>
+        <div class="echo-meta-triage">
+          <div class="echo-triage-caption">Total Cases triaged at HC entry by HF Triage Nurse</div>
+          <table>
+            <thead><tr><th class="tpl-tan">Female</th><th class="tpl-tan">Male</th><th class="tpl-tan">Total</th></tr></thead>
+            <tbody><tr>${nz(triageF)}${nz(triageM)}<td class="tpl-tan">${triageF + triageM}</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Main Morbidity Table (Rows 11-75 of template.xlsx) -->
+      <div class="table-scroll">
+        <table class="morbidity-table">
           <thead>
-            <tr><th rowspan="2">Gender</th><th colspan="6" class="th-new">NEW BENEFICIARIES</th><th rowspan="2" class="th-total">Total</th><th colspan="6" class="th-follow">FOLLOW UP</th><th rowspan="2" class="th-total">Total</th><th rowspan="2" class="th-total">Grand</th></tr>
-            <tr>${AGE_LABELS_SHORT.map(a=>`<th class="th-new">${a}</th>`).join('')}${AGE_LABELS_SHORT.map(a=>`<th class="th-follow">${a}</th>`).join('')}</tr>
+            <tr>
+              <th rowspan="3" class="tpl-sand">SN</th>
+              <th rowspan="3" class="tpl-sand">DIAGNOSIS</th>
+              <th colspan="12" class="tpl-morb-new">NEW CASES</th>
+              <th colspan="12" class="tpl-morb-fu">FOLLOW UP CASES</th>
+              <th colspan="3" rowspan="2" class="tpl-sand">TOTAL</th>
+              <th rowspan="3" class="tpl-sand">HFMD comments</th>
+              <th rowspan="3" class="tpl-sand">HFAM comments</th>
+            </tr>
+            <tr>
+              ${AGE_LABELS_SHORT.map(a => `<th colspan="2" class="tpl-morb-new">${a}</th>`).join('')}
+              ${AGE_LABELS_SHORT.map(a => `<th colspan="2" class="tpl-morb-fu">${a}</th>`).join('')}
+            </tr>
+            <tr>
+              ${AGE_GROUPS.map(() => `<th class="tpl-morb-new">F</th><th class="tpl-morb-new">M</th>`).join('')}
+              ${AGE_GROUPS.map(() => `<th class="tpl-morb-fu">F</th><th class="tpl-morb-fu">M</th>`).join('')}
+              <th class="tpl-sand">F</th><th class="tpl-sand">M</th><th class="tpl-tan">Total</th>
+            </tr>
           </thead>
-          <tbody>${benRowsHtml}<tr class="th-total" style="font-weight:900;"><td>Total</td>${benSums.map(v=>`<td>${v}</td>`).join('')}</tr></tbody>
-        </table></div>
+          <tbody>${matBody}</tbody>
+        </table>
       </div>
-      <div style="flex:0.8;min-width:210px;">
-        <div class="report-subhead">2. Cases Triaged by HF Triage Nurse</div>
-        <div class="table-scroll"><table class="morbidity-table">
-          <thead><tr><th class="th-new">Female</th><th class="th-new">Male</th><th class="th-total">Total</th></tr></thead>
-          <tbody><tr>${nz(triageF)}${nz(triageM)}<td class="th-total"><b>${triageF+triageM}</b></td></tr></tbody>
-        </table></div>
+
+      <!-- Bottom Split: Referrals + Special Groups & Restricted-Use Drugs (Rows 78-89) -->
+      <div class="echo-split-bottom">
+        <div>
+          <table class="morbidity-table">
+            <thead>
+              <tr>
+                <th rowspan="2" class="tpl-tan">REFERRALS</th>
+                ${AGE_LABELS_SHORT.map(a => `<th colspan="2" class="tpl-tan">${a}</th>`).join('')}
+                <th colspan="2" class="tpl-tan">Total</th>
+                <th rowspan="2" class="tpl-tan">Total</th>
+                <th rowspan="2" class="tpl-tan">COMMENTS<br>(CASE DETAILS)</th>
+              </tr>
+              <tr>
+                ${AGE_GROUPS.map(() => `<th class="tpl-tan">F</th><th class="tpl-tan">M</th>`).join('')}
+                <th class="tpl-tan">F</th><th class="tpl-tan">M</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${refRowsHtml}
+              <tr>
+                <td class="tpl-gray-lbl">Total Referred cases who received cash assistance</td>
+                ${cashSums.slice(0, 12).map(nz).join('')}
+                <td class="tpl-tot-fm">${cashSums[12]}</td>
+                <td class="tpl-tot-fm">${cashSums[13]}</td>
+                <td class="tpl-tot-all">${cashSums[14]}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <table class="morbidity-table">
+            <thead>
+              <tr>
+                <th rowspan="2" style="background:#fff;font-weight:900;">Special Groups</th>
+                <th colspan="2" class="tpl-tan">0 - 18 Y</th>
+                <th colspan="2" class="tpl-tan">&ge; 18 Y</th>
+                <th rowspan="2" class="tpl-tan">Total</th>
+              </tr>
+              <tr>
+                <th class="tpl-tan">F</th><th class="tpl-tan">M</th>
+                <th class="tpl-tan">F</th><th class="tpl-tan">M</th>
+              </tr>
+            </thead>
+            <tbody>${spRowsHtml}</tbody>
+          </table>
+
+          <table class="morbidity-table">
+            <thead>
+              <tr><th colspan="7" class="tpl-tan">Number of people treated for the restricted use indication</th></tr>
+              <tr>
+                <th class="tpl-tan">Drug</th>
+                ${RESTRICTED_DRUGS.map(d => `<th style="background:#fff;white-space:normal;font-size:8.5px;">${d.short}</th>`).join('')}
+                <th class="tpl-tan">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="tpl-tan">Female</td>
+                ${drugCounts.map(nz).join('')}
+                <td class="tpl-tan">${drugTotal}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
 
-    <div class="report-subhead">3. Daily Morbidity Form (Diagnoses 1 - 55 with Category Subtotals)</div>
-    <div class="table-scroll"><table class="morbidity-table">
-      <thead>
-        <tr><th rowspan="3">SN</th><th rowspan="3">Diagnosis</th><th colspan="12" class="th-new">NEW CASES</th><th colspan="12" class="th-follow">FOLLOW UP CASES</th><th colspan="3" rowspan="2" class="th-total">TOTAL</th><th rowspan="3">HFMD comments</th><th rowspan="3">HFAM comments</th></tr>
-        <tr>${AGE_LABELS_SHORT.map(a=>`<th colspan="2" class="th-new">${a}</th>`).join('')}${AGE_LABELS_SHORT.map(a=>`<th colspan="2" class="th-follow">${a}</th>`).join('')}</tr>
-        <tr>${AGE_GROUPS.map(()=>`<th>F</th><th>M</th>`).join('')}${AGE_GROUPS.map(()=>`<th>F</th><th>M</th>`).join('')}<th class="th-total">F</th><th class="th-total">M</th><th class="th-total">ALL</th></tr>
-      </thead>
-      <tbody>${matBody}</tbody>
-    </table></div>
+      <!-- eDEWS Warnings Strip (Row 90 / Row 192) -->
+      <div class="edews-bar">
+        <div class="edews-box ${edewsDaily > 0 ? 'alert-on' : ''}">
+          <span class="edews-lbl">eDEWS daily warning (#5, #6, #7, #8, #11, #12, #17, #18 New Cases)</span>
+          <span class="edews-num">${edewsDaily}</span>
+        </div>
+        <div class="edews-box ${edewsWeekly > 0 ? 'alert-on' : ''}">
+          <span class="edews-lbl">eDEWS weekly warning (Notifiable Diseases #1 - #29)</span>
+          <span class="edews-num">${edewsWeekly}</span>
+        </div>
+      </div>
 
-    <div class="report-row-split">
-      <div style="flex:2;min-width:520px;">
-        <div class="report-subhead">4. Referrals &amp; Cash Assistance</div>
-        <div class="table-scroll"><table class="morbidity-table">
+      <!-- IMCI, Elderly >65 & GHO Trained Strip (Rows 94-98) -->
+      <div class="echo-imci-strip">
+        <table class="morbidity-table">
           <thead>
-            <tr><th rowspan="2">REFERRALS</th>${AGE_LABELS_SHORT.map(a=>`<th colspan="2" class="th-ref">${a}</th>`).join('')}<th colspan="2" class="th-total">Total</th><th rowspan="2" class="th-total">ALL</th><th rowspan="2">COMMENTS (Age, Sex &amp; Cause)</th></tr>
-            <tr>${AGE_GROUPS.map(()=>`<th>F</th><th>M</th>`).join('')}<th>F</th><th>M</th></tr>
+            <tr>
+              <th rowspan="2" class="tpl-tan">IMCI</th>
+              <th colspan="2" class="tpl-tan">0-6 m.o.</th>
+              <th colspan="2" class="tpl-tan">&gt; 6-59 m.o.</th>
+              <th colspan="2" class="tpl-tan">TOTAL</th>
+            </tr>
+            <tr>
+              <th class="tpl-tan">female</th><th class="tpl-tan">male</th>
+              <th class="tpl-tan">female</th><th class="tpl-tan">male</th>
+              <th class="tpl-tan">female</th><th class="tpl-tan">male</th>
+            </tr>
           </thead>
           <tbody>
-            ${refRowsHtml}
-            <tr class="th-total" style="font-weight:900;"><td class="diag-name-cell">Total Referred cases who received cash assistance</td>${cashSums.map(v=>`<td>${v}</td>`).join('')}<td></td></tr>
+            <tr>
+              <td class="tpl-gray-lbl">Patients receiving Vitamin A</td>
+              ${nz(vitA_06F)}${nz(vitA_06M)}${nz(vitA_759F)}${nz(vitA_759M)}
+              <td class="tpl-tot-all">${vitA_06F + vitA_759F}</td>
+              <td class="tpl-tot-all">${vitA_06M + vitA_759M}</td>
+            </tr>
+            <tr>
+              <td class="tpl-gray-lbl">Total # of IMCI consultations</td>
+              ${nz(imci_06F)}${nz(imci_06M)}${nz(imci_759F)}${nz(imci_759M)}
+              <td class="tpl-tot-all">${imci_06F + imci_759F}</td>
+              <td class="tpl-tot-all">${imci_06M + imci_759M}</td>
+            </tr>
           </tbody>
-        </table></div>
-      </div>
+        </table>
 
-      <div style="flex:1;min-width:300px;">
-        <div class="report-subhead">5. Special Groups (0-18 Y &amp; &ge;18 Y)</div>
-        <div class="table-scroll"><table class="morbidity-table">
-          <thead><tr><th rowspan="2" class="th-special">Special Groups</th><th colspan="2" class="th-special">0 - 18 Y</th><th colspan="2" class="th-special">&ge; 18 Y</th><th rowspan="2" class="th-total">Total</th></tr><tr><th>F</th><th>M</th><th>F</th><th>M</th></tr></thead>
-          <tbody>${spRowsHtml}</tbody>
-        </table></div>
+        <table class="morbidity-table">
+          <thead>
+            <tr><th colspan="3" style="background:#fff;white-space:normal;font-size:9px;">Total Consultation cases of Elderly people (&gt;65 Yrs)</th></tr>
+            <tr><th class="tpl-tan">female</th><th class="tpl-tan">male</th><th class="tpl-tan">Total</th></tr>
+          </thead>
+          <tbody><tr>${nz(eldF)}${nz(eldM)}<td class="tpl-tan">${eldF + eldM}</td></tr></tbody>
+        </table>
 
-        <div class="report-subhead">6. Restricted-Use Drugs (Female)</div>
-        <div class="table-scroll"><table class="morbidity-table">
-          <thead><tr>${RESTRICTED_DRUGS.map(d=>`<th class="th-special">${d.short}</th>`).join('')}<th class="th-total">Total</th></tr></thead>
-          <tbody><tr>${drugCounts.map(nz).join('')}<td class="th-total"><b>${drugTotal}</b></td></tr></tbody>
-        </table></div>
+        <table class="morbidity-table">
+          <thead>
+            <tr><th colspan="3" style="background:#fff;white-space:normal;font-size:9px;">Number of GHO trained (on job coaching)</th></tr>
+            <tr><th class="tpl-tan">female</th><th class="tpl-tan">male</th><th class="tpl-tan">Total</th></tr>
+          </thead>
+          <tbody><tr>${nz(ghoF)}${nz(ghoM)}<td class="tpl-tan">${ghoF + ghoM}</td></tr></tbody>
+        </table>
       </div>
-    </div>
-
-    <div class="edews-bar">
-      <div class="edews-box ${edewsDaily > 0 ? 'alert-on' : ''}"><span>eDEWS Daily Warning (#5, #6, #7, #8, #11, #12, #17, #18 New Cases):</span><span>${edewsDaily}</span></div>
-      <div class="edews-box ${edewsWeekly > 0 ? 'alert-on' : ''}"><span>eDEWS Weekly Warning (Any Notifiable #1-29 New Case):</span><span>${edewsWeekly}</span></div>
-    </div>
-
-    <div class="report-row-split">
-      <div style="flex:1.5;min-width:360px;">
-        <div class="report-subhead">7. IMCI Summary (0-59 Months)</div>
-        <div class="table-scroll"><table class="morbidity-table">
-          <thead><tr><th rowspan="2" class="th-imci">IMCI Indicator</th><th colspan="2" class="th-imci">0-6 m.o.</th><th colspan="2" class="th-imci">&gt; 6-59 m.o.</th><th colspan="2" class="th-total">TOTAL</th></tr><tr><th>F</th><th>M</th><th>F</th><th>M</th><th>F</th><th>M</th></tr></thead>
-          <tbody>
-            <tr><td class="diag-name-cell">Patients receiving Vitamin A</td>${nz(vitA_06F)}${nz(vitA_06M)}${nz(vitA_759F)}${nz(vitA_759M)}<td class="th-total"><b>${vitA_06F+vitA_759F}</b></td><td class="th-total"><b>${vitA_06M+vitA_759M}</b></td></tr>
-            <tr><td class="diag-name-cell">Total # of IMCI consultations</td>${nz(imci_06F)}${nz(imci_06M)}${nz(imci_759F)}${nz(imci_759M)}<td class="th-total"><b>${imci_06F+imci_759F}</b></td><td class="th-total"><b>${imci_06M+imci_759M}</b></td></tr>
-          </tbody>
-        </table></div>
-      </div>
-      <div style="flex:0.75;min-width:190px;">
-        <div class="report-subhead">8. Elderly Consultations (&gt;65 Yrs)</div>
-        <div class="table-scroll"><table class="morbidity-table">
-          <thead><tr><th>Female</th><th>Male</th><th class="th-total">Total</th></tr></thead>
-          <tbody><tr>${nz(eldF)}${nz(eldM)}<td class="th-total"><b>${eldF+eldM}</b></td></tr></tbody>
-        </table></div>
-      </div>
-      <div style="flex:0.75;min-width:190px;">
-        <div class="report-subhead">9. GHO Trained (On-Job Coaching)</div>
-        <div class="table-scroll"><table class="morbidity-table">
-          <thead><tr><th>Female</th><th>Male</th><th class="th-total">Total</th></tr></thead>
-          <tbody><tr>${nz(ghoF)}${nz(ghoM)}<td class="th-total"><b>${ghoF+ghoM}</b></td></tr></tbody>
-        </table></div>
-      </div>
-    </div>
-
-    <div class="official-footer-box">
-      <div><strong>Prepared By:</strong><div>${facility.doctor || '____________________'}</div><div>${facility.title || ''}</div></div>
-      <div><strong>HFMD / Team Leader Sign &amp; Stamp:</strong><div class="sign-line"></div></div>
-      <div><strong>Export Verification:</strong><div>Cases: <b>${cases.length}</b> | Refs: <b>${refs.length}</b></div><div>Generated: ${new Date().toISOString().slice(0,16).replace('T',' ')}</div></div>
     </div>
   `;
 }
@@ -1326,7 +1611,7 @@ function renderAnalytics() {
   `;
 }
 
-// -------------------- استوديو الـ PDF والتصدير الموحد (Cordova + Web) --------------------
+// -------------------- التصدير المزدوج: حفظ مباشر في الجهاز + إرسال / مشاركة نسخة --------------------
 function base64ToBlob(b64, type) {
   const bin = atob(b64);
   const arr = new Uint8Array(bin.length);
@@ -1334,123 +1619,108 @@ function base64ToBlob(b64, type) {
   return new Blob([arr], { type });
 }
 
-async function dispatchBase64File(pureBase64, filename, mimeType) {
+function sanitizeExportFilename(filename) {
+  return String(filename || 'ECHO23028_File')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'ECHO23028_File';
+}
+
+function writeBlobToCordovaDir(dirUrl, fileName, blob) {
+  return new Promise((resolve, reject) => {
+    window.resolveLocalFileSystemURL(dirUrl, dirEntry => {
+      dirEntry.getFile(fileName, { create: true, exclusive: false }, fileEntry => {
+        fileEntry.createWriter(writer => {
+          writer.onwriteend = () => resolve(fileEntry.nativeURL || (dirUrl + fileName));
+          writer.onerror = err => reject(err);
+          writer.write(blob);
+        }, reject);
+      }, reject);
+    }, reject);
+  });
+}
+
+// حفظ الملف مباشرة في الجهاز (يدعم أندرويد APK عبر cordova-plugin-file + تنزيل مباشر في المتصفح)
+async function saveBase64FileToDevice(pureBase64, filename, mimeType) {
+  const safeName = sanitizeExportFilename(filename);
+  const blob = base64ToBlob(pureBase64, mimeType);
+
+  // 1. داخل تطبيق الأندرويد (Cordova) مع إضافة cordova-plugin-file
+  if (window.cordova && window.resolveLocalFileSystemURL && window.cordova.file) {
+    const candidateDirs = [];
+    if (window.cordova.file.externalRootDirectory) {
+      candidateDirs.push({ url: window.cordova.file.externalRootDirectory + 'Download/', label: 'مجلد التنزيلات (Download)' });
+    }
+    if (window.cordova.file.externalDataDirectory) {
+      candidateDirs.push({ url: window.cordova.file.externalDataDirectory, label: 'مجلد التطبيق (Android/data/com.echo.morbiditypro/files)' });
+    }
+    for (const dir of candidateDirs) {
+      try {
+        await writeBlobToCordovaDir(dir.url, safeName, blob);
+        showToast(`✅ تم حفظ الملف في ${dir.label}: ${safeName}`);
+        alert(`✅ تم حفظ الملف في الجهاز بنجاح!\n\nاسم الملف:\n${safeName}\n\nالمسار:\n${dir.label}`);
+        return true;
+      } catch (e) {}
+    }
+  }
+
+  // 2. إذا كان داخل APK قديم بدون cordova-plugin-file -> افتح نافذة الحفظ/المشاركة
+  if (window.cordova && window.plugins && window.plugins.socialsharing) {
+    await shareBase64File(pureBase64, safeName, mimeType, 'حفظ الملف في الجهاز (اختر الملفات أو Drive)');
+    return true;
+  }
+
+  // 3. في المتصفح (جوال أو كمبيوتر) -> تنزيل مباشر لمجلد Downloads
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = safeName;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2500);
+  showToast('📥 تم حفظ الملف في مجلد التنزيلات: ' + safeName);
+  return true;
+}
+
+// إرسال / مشاركة نسخة من الملف (واتساب / تيليجرام / بريد)
+async function shareBase64File(pureBase64, filename, mimeType, chooserTitle) {
+  const safeName = sanitizeExportFilename(filename);
+
   if (window.plugins && window.plugins.socialsharing) {
-    const safeName = String(filename || 'ECHO23028_File')
-      .replace(/[^a-zA-Z0-9._-]+/g, '_')
-      .replace(/^_+|_+$/g, '') || 'ECHO23028_File';
+    const title = chooserTitle || 'إرسال نسخة عبر واتساب أو تطبيق آخر';
     window.plugins.socialsharing.shareWithOptions(
-      { message: safeName, subject: safeName, files: [`df:${safeName};data:${mimeType};base64,${pureBase64}`], chooserTitle: 'حفظ في الجهاز أو مشاركة' },
-      () => showToast('✅ تمت العملية بنجاح'),
+      { message: safeName, subject: safeName, files: [`df:${safeName};data:${mimeType};base64,${pureBase64}`], chooserTitle: title },
+      () => showToast('✅ تمت مشاركة النسخة بنجاح'),
       () => window.plugins.socialsharing.shareWithOptions(
-        { message: safeName, subject: safeName, files: [`df:${safeName};base64,${pureBase64}`], chooserTitle: 'حفظ في الجهاز أو مشاركة' },
-        () => showToast('✅ تمت العملية بنجاح'),
+        { message: safeName, subject: safeName, files: [`df:${safeName};base64,${pureBase64}`], chooserTitle: title },
+        () => showToast('✅ تمت مشاركة النسخة بنجاح'),
         () => window.plugins.socialsharing.share(null, safeName, `data:${mimeType};base64,${pureBase64}`, null)
       )
     );
     return;
   }
+
   const blob = base64ToBlob(pureBase64, mimeType);
   try {
-    const file = new File([blob], filename, { type: mimeType });
+    const file = new File([blob], safeName, { type: mimeType });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: filename });
-      return showToast('✅ تمت مشاركة الملف');
+      await navigator.share({ files: [file], title: safeName });
+      return showToast('✅ تم إرسال النسخة بنجاح');
     }
   } catch (e) { if (e && e.name === 'AbortError') return; }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2500);
-  showToast('📥 تم تنزيل الملف: ' + filename);
+
+  // متصفح كمبيوتر لا يدعم Web Share -> تنزيل مباشر كنسخة جاهزة للإرسال
+  await saveBase64FileToDevice(pureBase64, safeName, mimeType);
 }
 
-function openPdfStudio() {
-  renderReports();
-  document.getElementById('studioPaper').innerHTML = document.getElementById('printableReportArea').innerHTML;
-  openModal('pdfStudioModal');
-  const autoZoom = Math.max(0.25, Math.min(0.95, Number(((window.innerWidth - 32) / 1360).toFixed(2))));
-  document.getElementById('ctrlPreviewZoom').value = autoZoom;
-  applyStudioSettings();
-  applyStudioZoom();
-}
+// -------------------- تصدير ملف Excel الرسمي المطابق للقالب 100% (حفظ في الجهاز / إرسال نسخة) --------------------
+let pendingExcelExportMode = 'save';
 
-function applyStudioSettings() {
-  const w = document.getElementById('ctrlPaperWidth').value;
-  const fs = document.getElementById('ctrlFontSize').value;
-  const pad = document.getElementById('ctrlCellPad').value;
-  document.getElementById('lblPaperWidth').textContent = w + 'px';
-  document.getElementById('lblFontSize').textContent = fs + 'px';
-  document.getElementById('lblCellPad').textContent = pad + 'px';
-  const p = document.getElementById('studioPaper');
-  p.style.width = w + 'px';
-  document.documentElement.style.setProperty('--pdf-font-size', fs + 'px');
-  document.documentElement.style.setProperty('--pdf-cell-pad-v', pad + 'px');
-}
-
-function applyStudioZoom() {
-  const z = document.getElementById('ctrlPreviewZoom').value;
-  document.getElementById('lblPreviewZoom').textContent = Math.round(z * 100) + '%';
-  document.getElementById('studioScaler').style.transform = `scale(${z})`;
-}
-
-function resetStudioDefaults() {
-  const orient = document.getElementById('ctrlOrientation').value;
-  document.getElementById('ctrlPaperWidth').value = orient === 'landscape' ? 1360 : 1120;
-  document.getElementById('ctrlFontSize').value = orient === 'landscape' ? 7.4 : 6.8;
-  document.getElementById('ctrlCellPad').value = orient === 'landscape' ? 1.5 : 1.2;
-  applyStudioSettings();
-}
-
-function triggerSmartPrint() {
-  if (window.cordova || (window.plugins && window.plugins.socialsharing)) return exportFinalPDF();
-  window.print();
-}
-
-async function exportFinalPDF() {
-  if (typeof html2pdf === 'undefined') return showToast('⚠️ مكتبة الـ PDF غير جاهزة');
-  const orient = document.getElementById('ctrlOrientation').value;
-  const targetWidth = Number(document.getElementById('ctrlPaperWidth').value) || 1360;
-  const stage = document.getElementById('pdfRenderStage');
-  const overlay = document.getElementById('captureOverlay');
-  const statusEl = document.getElementById('captureStatusText');
-  statusEl.textContent = 'جاري تجهيز وتوليد ملف الـ PDF الرسمي بدقة عالية...';
-  overlay.classList.remove('hidden');
-
-  stage.innerHTML = '';
-  const clone = document.getElementById('studioPaper').cloneNode(true);
-  clone.style.width = targetWidth + 'px';
-  stage.style.width = targetWidth + 'px';
-  stage.style.display = 'block';
-  stage.appendChild(clone);
-  await new Promise(r => setTimeout(r, 200));
-
-  const monthTag = document.getElementById('reportMonthPicker').value || document.getElementById('workDate').value;
-  const fname = `${PROJECT_CODE}-Morbidity Report-${facility.shortName || 'HF'}-${monthTag}.pdf`.replace(/[\\/:*?"<>|]/g, '_');
-
-  try {
-    const dataUri = await html2pdf().set({
-      margin: [3, 3, 3, 3],
-      filename: fname,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, x: 0, y: 0, windowWidth: targetWidth, width: targetWidth },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: orient },
-      pagebreak: { mode: ['css', 'legacy'] }
-    }).from(clone).outputPdf('datauristring');
-    stage.style.display = 'none'; stage.innerHTML = ''; overlay.classList.add('hidden');
-    await dispatchBase64File(dataUri.split(',')[1], fname, 'application/pdf');
-  } catch (err) {
-    stage.style.display = 'none'; stage.innerHTML = ''; overlay.classList.add('hidden');
-    showToast('⚠️ تعذر توليد الـ PDF');
-  }
-}
-
-// -------------------- تصدير ملف Excel الرسمي المطابق للقالب 100% --------------------
-async function exportOfficialExcel() {
+async function exportOfficialExcel(mode) {
+  const actionMode = mode === 'share' ? 'share' : 'save';
   const tpl = await resolveTemplateSource();
   if (!tpl) {
     pendingExportAfterTemplateUpload = true;
+    pendingExcelExportMode = actionMode;
     await openTemplateModal();
     showToast('📂 اختر ملف القالب الرسمي (.xlsx) مرة واحدة وسيتم تعبئته وتصديره تلقائياً');
     return;
@@ -1463,15 +1733,22 @@ async function exportOfficialExcel() {
 
   try {
     const targetMonth = document.getElementById('reportMonthPicker').value || getAppReportingMonthForDate(document.getElementById('workDate').value);
+    const cycleBounds = getAppReportingMonthBounds(targetMonth);
     const { pureBase64, filename } = await exportExactOfficialEchoExcel(
-      allCases, dailyOps, standaloneRefs, diagComments, facility, targetMonth
+      allCases, dailyOps, standaloneRefs, diagComments, facility, targetMonth, cycleBounds
     );
     overlay.classList.add('hidden');
-    await dispatchBase64File(pureBase64, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const xlsxMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    if (actionMode === 'share') {
+      await shareBase64File(pureBase64, filename, xlsxMime, 'إرسال نسخة من تقرير Excel الرسمي');
+    } else {
+      await saveBase64FileToDevice(pureBase64, filename, xlsxMime);
+    }
   } catch (err) {
     overlay.classList.add('hidden');
     if (err && err.code === 'NO_TEMPLATE') {
       pendingExportAfterTemplateUpload = true;
+      pendingExcelExportMode = actionMode;
       await openTemplateModal();
       return;
     }
@@ -1535,7 +1812,7 @@ function handleTemplateUpload(e) {
       if (pendingExportAfterTemplateUpload) {
         pendingExportAfterTemplateUpload = false;
         closeModal('templateModal');
-        await exportOfficialExcel();
+        await exportOfficialExcel(pendingExcelExportMode);
       }
     } catch (err) {
       showToast('⚠️ ' + (err.message || 'تعذر قراءة ملف القالب'));
@@ -1552,9 +1829,9 @@ async function deleteSavedTemplate() {
   showToast('🗑️ تم حذف القالب المحفوظ');
 }
 
-async function exportOfficialExcelFromModal() {
+async function exportOfficialExcelFromModal(mode) {
   closeModal('templateModal');
-  await exportOfficialExcel();
+  await exportOfficialExcel(mode || 'save');
 }
 
 // -------------------- مركز دمج الفريق والنسخ الاحتياطي الأوفلاين (JSON) --------------------
@@ -1605,7 +1882,8 @@ function buildTeamExportPayload(scope) {
       allCases: expCases,
       dailyOps: expOps,
       standaloneRefs: expRefs,
-      diagComments
+      diagComments,
+      reportingCycles
     }
   };
 }
@@ -1641,13 +1919,18 @@ function toSafeAsciiTag(str) {
   return trans.replace(/[^a-zA-Z0-9-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 20);
 }
 
-async function exportBackupJSON() {
+async function exportBackupJSON(mode) {
+  const actionMode = mode === 'save' ? 'save' : 'share';
   const scope = (document.getElementById('backupExportScope') && document.getElementById('backupExportScope').value) || 'all';
   const { tag, payload } = buildTeamExportPayload(scope);
   const senderTag = toSafeAsciiTag(getCurrentMemberName()) || getOrCreateDeviceId().slice(-6);
   const fname = `ECHO23028_Team_${senderTag}_${tag}.json`;
   const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
-  await dispatchBase64File(b64, fname, 'application/json');
+  if (actionMode === 'save') {
+    await saveBase64FileToDevice(b64, fname, 'application/json');
+  } else {
+    await shareBase64File(b64, fname, 'application/json', 'إرسال ملف بيانات الفريق (.json)');
+  }
 }
 
 function copyBackupToClipboard() {
@@ -1807,6 +2090,15 @@ function mergeSingleSourceIntoState(parsed, sourceLabel, mode, keepFacility) {
         if (nextHfmd !== cur.hfmd || nextHfam !== cur.hfam) {
           diagComments[diagId] = { hfmd: nextHfmd, hfam: nextHfam };
           stats.commentsMerged++;
+        }
+      });
+    }
+
+    // 5. دمج الدورات الشهرية المخصصة إذا لم تكن مضبوطة محلياً
+    if (parsed.reportingCycles && typeof parsed.reportingCycles === 'object') {
+      Object.entries(parsed.reportingCycles).forEach(([ym, c]) => {
+        if (c && c.start && c.end && !reportingCycles[ym]) {
+          reportingCycles[ym] = { start: c.start, end: c.end };
         }
       });
     }
