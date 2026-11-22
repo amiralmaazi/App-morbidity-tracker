@@ -8,12 +8,9 @@
   --muted: #64748b;
   --border: #cbd5e1;
   --danger: #dc2626;
-  --pdf-font-size: 7.4px;
-  --pdf-cell-pad-v: 1.5px;
-  --pdf-cell-pad-h: 2px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
-body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 60px; overflow-x: hidden; }
+body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 18px; overflow-x: hidden; min-height: 100vh; display: flex; flex-direction: column; }
 .hidden { display: none !important; }
 .spacer { flex: 1; }
 .flex-1 { flex: 1; }
@@ -39,6 +36,8 @@ body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 60p
 .btn-action { border: none; padding: 8px 11px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: #fff; transition: 0.15s; }
 .btn-action:active { transform: scale(0.96); }
 .btn-excel { background: #16a34a; }
+.btn-excel-share { background: #0d9488; border: 1px solid rgba(255,255,255,0.35); }
+.btn-cycle { background: #7c3aed; }
 .btn-pdf { background: #dc2626; }
 .btn-share { background: #2563eb; }
 .btn-backup { background: #1e293b; }
@@ -46,13 +45,13 @@ body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 60p
 .btn-edit { background: #d97706; }
 
 /* Navigation Tabs */
-.tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-width: 1320px; margin: 12px auto 0; padding: 0 12px; }
+.tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-width: 1320px; margin: 12px auto 0; padding: 0 12px; width: 100%; }
 @media (min-width: 820px) { .tabs { grid-template-columns: repeat(4, 1fr); } }
 .tab-btn { padding: 11px 8px; border: 2px solid var(--border); background: #fff; color: var(--muted); border-radius: 10px; font-weight: 900; font-size: 12.5px; cursor: pointer; text-align: center; }
 .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 4px 10px rgba(15,118,110,0.25); }
 
 /* Layout & Cards */
-.container { max-width: 1320px; margin: 12px auto; padding: 0 12px; }
+.container { max-width: 1320px; width: 100%; margin: 12px auto; padding: 0 12px; flex: 1; }
 .card { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
 .section-title { font-size: 13.5px; font-weight: 900; margin: 0 0 10px 0; color: #0f172a; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -117,40 +116,78 @@ body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 60p
 .mini-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
 .mini-item { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; gap: 8px; }
 
-/* Official ECHO Report Sheet */
+/* Cycle Settings UI */
+.cycle-range-chip { background: #f3e8ff; color: #5b21b6; border: 1px solid #c4b5fd; padding: 5px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 900; }
+.cycle-weeks-preview { margin-top: 8px; background: #fff; border: 1px dashed #7c3aed; border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.65; }
+.cycle-wk-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; border-bottom: 1px dotted #e2e8f0; }
+.cycle-wk-row:last-child { border-bottom: none; }
+
+/* ============================================================================
+   Official ECHO 23028 Excel Template Replica Styling (Exact Match to template.xlsx)
+   ============================================================================ */
 .report-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
-.report-sheet { background: #fff; padding: 12px; border-radius: 10px; direction: ltr; border: 1px solid #cbd5e1; }
-.official-header-box { border: 1.5px solid #0f172a; border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; background: #f8fafc; }
-.official-title-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #0f172a; padding-bottom: 4px; margin-bottom: 5px; }
-.official-meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 10px; }
-.official-meta-item { background: #fff; border: 1px solid #cbd5e1; padding: 3px 6px; border-radius: 3px; }
-.official-meta-label { font-weight: 900; color: #475569; font-size: 8px; display: block; text-transform: uppercase; }
-.official-meta-val { font-weight: 900; color: #0f172a; font-size: 10px; }
-.report-subhead { font-size: 10px; font-weight: 900; margin: 8px 0 3px; color: #0f172a; text-transform: uppercase; }
-.report-row-split { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; }
-.table-scroll { overflow-x: auto; border: 1px solid #334155; border-radius: 4px; background: #fff; margin-bottom: 6px; }
-table.morbidity-table { width: 100%; border-collapse: collapse; font-size: 9.5px; text-align: center; direction: ltr; }
-table.morbidity-table th, table.morbidity-table td { border: 1px solid #1e293b; padding: 2.5px 3.5px; white-space: nowrap; }
-table.morbidity-table th { background: #e2e8f0; font-weight: 800; }
-.th-new { background: #bae6fd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.th-follow { background: #fed7aa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.th-total { background: #fde047 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.th-special { background: #e9d5ff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.th-ref { background: #fecaca !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.th-imci { background: #bbf7d0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.cat-row td { background: #cbd5e1 !important; font-weight: 900; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.subcat-row td { background: #e2e8f0 !important; font-weight: 800; font-style: italic; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.cell-nz { background: #dcfce7 !important; font-weight: 900; color: #14532d !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.cell-blocked { background: #94a3b8 !important; color: #475569 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.diag-name-cell { text-align: left !important; padding-left: 5px !important; font-weight: 700; min-width: 170px; }
-.cmt-cell { text-align: left !important; white-space: normal !important; max-width: 180px; font-size: 8.5px; }
+.report-sheet { background: #fff; padding: 12px; border-radius: 8px; direction: ltr; border: 2px solid #000; overflow-x: auto; font-family: Arial, Helvetica, sans-serif; color: #000; }
+.echo-canvas { min-width: 1160px; }
 
-.edews-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 6px 0; }
-.edews-box { border: 1.5px solid #0f172a; padding: 5px 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: 900; background: #f8fafc; }
-.edews-box.alert-on { background: #fee2e2 !important; border-color: #dc2626 !important; color: #991b1b !important; }
+/* Top Strip: Logo + Title + Beneficiaries Table */
+.echo-top-strip { display: grid; grid-template-columns: 270px 1fr; gap: 10px; align-items: stretch; margin-bottom: 8px; }
+.echo-brand-block { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1.5px solid #000; padding: 6px 10px; background: #fff; }
+.echo-brand-title { font-size: 15px; font-weight: 900; line-height: 1.25; color: #000; }
+.echo-brand-sub { font-size: 10px; font-weight: 700; color: #334155; margin-top: 3px; }
+.echo-logo-img { max-height: 54px; max-width: 105px; object-fit: contain; display: block; }
 
-.official-footer-box { border: 1.5px solid #0f172a; border-radius: 4px; padding: 6px 10px; margin-top: 8px; background: #f8fafc; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 9px; }
-.sign-line { border-bottom: 1px dashed #334155; height: 14px; margin-top: 4px; }
+/* Meta & Form Banner Strip (Rows 8-10 of template.xlsx) */
+.echo-meta-strip { display: grid; grid-template-columns: 300px 1fr 225px; gap: 0; border: 1.5px solid #000; margin-bottom: 6px; }
+.echo-meta-left { background: #DDD9C3; border-right: 1.5px solid #000; }
+.echo-meta-left table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+.echo-meta-left td { border-bottom: 1px solid #000; padding: 3px 6px; font-weight: 800; color: #000; }
+.echo-meta-left tr:last-child td { border-bottom: none; }
+.echo-meta-lbl { width: 112px; border-right: 1px solid #000; white-space: nowrap; }
+.echo-meta-center { background: #DDD9C3; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 6px 10px; border-right: 1.5px solid #000; }
+.echo-form-main-title { font-size: 19px; font-weight: 900; letter-spacing: 0.5px; color: #000; text-transform: uppercase; }
+.echo-form-scope-sub { font-size: 10.5px; font-weight: 800; color: #1e293b; margin-top: 3px; }
+.echo-form-note { font-size: 9.5px; font-weight: 900; color: #000; background: #fff; border: 1px solid #000; padding: 2px 8px; margin-top: 5px; }
+.echo-meta-triage { background: #fff; display: flex; flex-direction: column; justify-content: space-between; }
+.echo-triage-caption { font-size: 9px; font-weight: 900; text-align: center; padding: 4px 5px; border-bottom: 1px solid #000; line-height: 1.2; background: #fff; }
+.echo-meta-triage table { width: 100%; border-collapse: collapse; font-size: 10px; text-align: center; flex: 1; }
+.echo-meta-triage th, .echo-meta-triage td { border-right: 1px solid #000; border-top: 1px solid #000; padding: 3px 4px; font-weight: 800; }
+.echo-meta-triage th:last-child, .echo-meta-triage td:last-child { border-right: none; }
+
+/* Official Excel Tables */
+.table-scroll { overflow-x: auto; margin-bottom: 8px; }
+table.morbidity-table { width: 100%; border-collapse: collapse; font-size: 10px; text-align: center; direction: ltr; color: #000; border: 1.5px solid #000; }
+table.morbidity-table th, table.morbidity-table td { border: 1px solid #000; padding: 2.5px 3.5px; white-space: nowrap; font-weight: 700; }
+
+/* Exact template.xlsx Hex Fill Classes */
+.tpl-sand { background: #DDD9C3 !important; color: #000 !important; font-weight: 900 !important; }
+.tpl-tan { background: #C4BD97 !important; color: #000 !important; font-weight: 900 !important; }
+.tpl-ben-new { background: #B7DDE8 !important; color: #000 !important; font-weight: 900 !important; }
+.tpl-ben-fu { background: #FBD4B4 !important; color: #000 !important; font-weight: 900 !important; }
+.tpl-morb-new { background: #E6B9B8 !important; color: #000 !important; font-weight: 900 !important; }
+.tpl-morb-fu { background: #FFFF89 !important; color: #000 !important; font-weight: 900 !important; }
+.tpl-cat-row td { background: #C6D9F0 !important; font-weight: 900 !important; }
+.tpl-cat-row td.diag-name-cell { color: #CC0000 !important; font-size: 10.5px; }
+.tpl-subcat-row td { background: #DDD9C3 !important; font-weight: 900 !important; }
+.tpl-subcat-row td.diag-name-cell { color: #CC0000 !important; font-style: italic; }
+.tpl-grand-row td { background: #95B3D7 !important; color: #000 !important; font-weight: 900 !important; font-size: 10.5px; }
+.tpl-gray-lbl { background: #D8D8D8 !important; color: #000 !important; font-weight: 800 !important; text-align: left !important; padding-left: 6px !important; }
+.tpl-tot-fm { background: #DDD9C3 !important; color: #000 !important; font-weight: 900 !important; }
+.tpl-tot-all { background: #C4BD97 !important; color: #000 !important; font-weight: 900 !important; }
+.tpl-blocked { background: #C4BD97 !important; color: #C4BD97 !important; user-select: none; }
+.tpl-nz { background: #ecfdf5 !important; color: #065f46 !important; font-weight: 900 !important; }
+.tpl-zero { color: #64748b; font-weight: 600; }
+.diag-name-cell { text-align: left !important; padding-left: 6px !important; font-weight: 800 !important; min-width: 195px; white-space: normal !important; }
+.cmt-cell { text-align: left !important; white-space: normal !important; max-width: 170px; font-size: 9px; font-weight: 700; }
+
+.echo-split-bottom { display: grid; grid-template-columns: 1.65fr 1fr; gap: 10px; align-items: start; margin-bottom: 8px; }
+.echo-imci-strip { display: grid; grid-template-columns: 1.45fr 0.75fr 0.75fr; gap: 10px; align-items: start; margin-top: 8px; }
+
+.edews-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 8px 0; }
+.edews-box { border: 1.5px solid #000; display: grid; grid-template-columns: 1fr 70px; font-size: 10.5px; font-weight: 900; background: #fff; }
+.edews-box .edews-lbl { padding: 5px 8px; border-right: 1.5px solid #000; background: #DDD9C3; }
+.edews-box .edews-num { padding: 5px 8px; text-align: center; background: #fff; font-size: 12px; }
+.edews-box.alert-on .edews-lbl { background: #fecaca !important; color: #991b1b !important; }
+.edews-box.alert-on .edews-num { background: #dc2626 !important; color: #fff !important; }
 
 /* Analytics Dashboard */
 .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
@@ -162,7 +199,7 @@ table.morbidity-table th { background: #e2e8f0; font-weight: 800; }
 .bar-track { flex: 1; background: #e2e8f0; height: 16px; border-radius: 999px; overflow: hidden; }
 .bar-fill { height: 100%; background: linear-gradient(90deg, #0f766e, #14b8a6); border-radius: 999px; }
 
-/* Modals & PDF Studio */
+/* Modals */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.85); z-index: 3500; display: flex; align-items: center; justify-content: center; padding: 14px; overflow-y: auto; }
 .modal-card { background: #fff; color: #0f172a; width: 100%; max-width: 600px; border-radius: 16px; padding: 18px; max-height: 92vh; overflow-y: auto; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 12px; }
@@ -173,36 +210,13 @@ table.morbidity-table th { background: #e2e8f0; font-weight: 800; }
 .panel-box { background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 12px; }
 .panel-green { background: #f0fdf4; border-color: #86efac; }
 .panel-title { font-weight: 900; font-size: 13px; margin-bottom: 8px; }
-.radio-row { display: flex; gap: 14px; font-size: 12px; font-weight: 800; margin-bottom: 8px; }
+.radio-row { display: flex; gap: 14px; font-size: 12px; font-weight: 800; margin-bottom: 8px; flex-wrap: wrap; }
 .backup-textarea { width: 100%; height: 90px; padding: 8px; border: 2px solid #cbd5e1; border-radius: 8px; font-family: monospace; font-size: 11px; direction: ltr; margin: 8px 0; }
 .guide-list { display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.5; font-weight: 700; }
 .guide-item { background: #f8fafc; border-right: 4px solid var(--primary); padding: 8px 12px; border-radius: 6px; }
 
-.studio-backdrop { position: fixed; inset: 0; background: #0f172a; z-index: 3000; display: flex; flex-direction: column; }
-.studio-header { background: #1e293b; color: #fff; padding: 10px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
-.studio-controls { background: #334155; color: #f8fafc; padding: 8px 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 12px; font-weight: 700; }
-.control-item { display: flex; align-items: center; gap: 6px; background: rgba(15,23,42,0.45); padding: 4px 10px; border-radius: 8px; }
-.control-item input[type="range"] { width: 80px; accent-color: #14b8a6; }
-.studio-viewport { flex: 1; overflow: auto; background: #475569; padding: 16px; text-align: center; }
-.studio-paper-scaler { display: inline-block; transform-origin: top center; }
-.studio-paper { background: #fff; color: #0f172a; direction: ltr; padding: 8px 10px; width: 1360px; text-align: left; }
-.studio-paper .table-scroll { overflow: visible !important; border: none !important; }
-.studio-paper table.morbidity-table { font-size: var(--pdf-font-size) !important; }
-.studio-paper table.morbidity-table th, .studio-paper table.morbidity-table td { padding: var(--pdf-cell-pad-v) var(--pdf-cell-pad-h) !important; line-height: 1.06 !important; }
-
-#pdfRenderStage { position: fixed; top: 0; left: 0; z-index: 8500; background: #fff; display: none; direction: ltr; }
 .capture-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.95); color: #fff; z-index: 9000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-weight: 900; text-align: center; padding: 20px; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 11px 20px; border-radius: 999px; font-weight: 800; font-size: 13px; z-index: 9999; display: none; text-align: center; }
-
-@media print {
-  @page { size: A4 landscape; margin: 4mm; }
-  body { background: #fff !important; padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .app-header, .tabs, #tab-entry, #tab-ops, #tab-analytics, .no-print, .studio-header, .studio-controls, .modal-backdrop, #pdfRenderStage, #captureOverlay { display: none !important; }
-  .studio-backdrop { position: static !important; background: #fff !important; display: block !important; }
-  .studio-viewport { background: #fff !important; padding: 0 !important; }
-  .studio-paper-scaler { transform: none !important; display: block !important; }
-  .studio-paper { width: 100% !important; padding: 0 !important; zoom: 0.72; }
-}
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 11px 20px; border-radius: 999px; font-weight: 800; font-size: 13px; z-index: 9999; display: none; text-align: center; max-width: 92vw; }
 
 /* Team Merge Hub Styles */
 .team-id-box { background: #eff6ff; border-color: #93c5fd; }
@@ -211,6 +225,8 @@ table.morbidity-table th { background: #e2e8f0; font-weight: 800; }
 .merge-file-row { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; margin-bottom: 6px; font-size: 12px; line-height: 1.5; }
 .merge-summary-banner { background: #0f766e; color: #fff; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; font-weight: 900; margin-bottom: 8px; }
 .member-tag { display: inline-block; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 1px 6px; border-radius: 5px; font-size: 10px; font-weight: 800; margin-top: 2px; }
-
 .sr-file-input { position: fixed; top: -200px; left: -200px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .merge-file-err { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; border-radius: 8px; padding: 7px 10px; margin-bottom: 6px; font-size: 12px; line-height: 1.5; }
+
+/* App Footer */
+.app-footer { margin-top: auto; text-align: center; padding: 14px 12px; background: #0f172a; color: #e2e8f0; font-size: 13px; font-weight: 900; letter-spacing: 0.3px; border-top: 3px solid #0d9488; }
