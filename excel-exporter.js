@@ -806,7 +806,7 @@ function populateMonthlyOpsMap(ops, mSum, weekStartDates, siteName, doctorName, 
 }
 
 // Main Export Entry Point: Loads uploaded/bundled template and fills W1..W5 + Monthly
-async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standaloneRefsArr, diagCommentsObj, facilityObj, targetMonthYYYYMM) {
+async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standaloneRefsArr, diagCommentsObj, facilityObj, targetMonthYYYYMM, customCycleBounds) {
   if (typeof JSZip === 'undefined') throw new Error('مكتبة JSZip غير محمّلة');
 
   const tpl = await resolveTemplateSource();
@@ -828,10 +828,12 @@ async function exportExactOfficialEchoExcel(allCasesArr, dailyOpsObj, standalone
 
   const monthStr = targetMonthYYYYMM || getReportingMonthForDate(new Date().toISOString().slice(0, 10));
   const [yr, mo] = monthStr.split('-').map(Number);
-  const { startISO: cycleStartISO, endISO: cycleEndISO } = getReportingMonthBounds(monthStr);
+  const defaultBounds = getReportingMonthBounds(monthStr);
+  const cycleStartISO = (customCycleBounds && customCycleBounds.startISO) ? customCycleBounds.startISO : defaultBounds.startISO;
+  const cycleEndISO = (customCycleBounds && customCycleBounds.endISO) ? customCycleBounds.endISO : defaultBounds.endISO;
 
   const siteName = facilityObj.shortName || 'Almaqayit HU';
-  const doctorName = facilityObj.doctor || 'Dr.';
+  const doctorName = facilityObj.doctor || 'Dr. AmirAl_maazi';
 
   // Filter strictly by Reporting Month Cycle: 26th of previous month -> 25th of target month
   const monthCases = allCasesArr.filter(c => {
