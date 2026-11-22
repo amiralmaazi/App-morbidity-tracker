@@ -13,19 +13,17 @@
 <!-- جسر أندرويد الأساسي لعمل الحفظ والمشاركة داخل APK -->
 <script src="cordova.js"></script>
 
-<!-- مكتبات التصدير عبر سيرفر cdnjs المفتوح عالمياً (وتُدمج أوفلاين داخل الـ APK) -->
+<!-- مكتبات الإكسل والضغط عبر سيرفر cdnjs المفتوح عالمياً (وتُدمج أوفلاين داخل الـ APK) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
 <div id="toast" class="toast"></div>
-<div id="pdfRenderStage"></div>
 
 <div id="captureOverlay" class="capture-overlay hidden">
   <div style="font-size:36px;">⚙️</div>
-  <div id="captureStatusText">جاري تجهيز وتوليد الملف الرسمي بدقة عالية...</div>
+  <div id="captureStatusText">جاري تجهيز وتوليد ملف Excel الرسمي بدقة عالية...</div>
 </div>
 
 <!-- نافذة إعدادات المنشأة الصحية (مرتبطة بصفحة list الـ 19 مرفقاً) -->
@@ -56,6 +54,41 @@
   </div>
 </div>
 
+<!-- نافذة ضبط الدورة الشهرية يدوياً (بداية ونهاية كل شهر تغيّراً حسب التقويم) -->
+<div id="cycleModal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>🗓️ ضبط حدود الدورة الشهرية يدوياً (بداية ونهاية الشهر)</h3>
+      <button class="btn-action btn-pdf" onclick="closeModal('cycleModal')">✖</button>
+    </div>
+    <div class="panel-box">
+      <div class="form-group">
+        <label>اختر شهر التقرير المراد ضبط دورته:</label>
+        <input type="month" id="cycleMonthSelect" class="form-input" onchange="onCycleModalMonthChange()">
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>تاريخ بداية الدورة (بداية الأسبوع W1):</label>
+          <input type="date" id="cycleStartInput" class="form-input" onchange="previewCycleWeeksUI()">
+        </div>
+        <div class="form-group">
+          <label>تاريخ نهاية الدورة (آخر يوم في الشهر):</label>
+          <input type="date" id="cycleEndInput" class="form-input" onchange="previewCycleWeeksUI()">
+        </div>
+      </div>
+      <div id="cycleWeeksPreview" class="cycle-weeks-preview"></div>
+      <div class="row-gap" style="margin-top:10px;">
+        <button class="btn-action btn-excel flex-1" onclick="saveManualCycleSettings()">✅ حفظ حدود هذه الدورة</button>
+        <button class="btn-action btn-backup" onclick="resetManualCycleForMonth()">🔄 افتراضي (26 → 25)</button>
+      </div>
+    </div>
+    <div class="panel-box panel-green">
+      <div class="panel-title">📋 الدورات الشهرية المضبوطة يدوياً والمحفوظة:</div>
+      <div id="savedCyclesList" class="mini-list"></div>
+    </div>
+  </div>
+</div>
+
 <!-- نافذة التعليمات الرسمية والتعريفات (Sheet1) -->
 <div id="guideModal" class="modal-backdrop hidden">
   <div class="modal-card">
@@ -81,14 +114,15 @@
     <div class="panel-box panel-green">
       <div class="panel-title">📂 رفع أو تحديث القالب الرسمي (.xlsx) من الهاتف أو الكمبيوتر:</div>
       <p style="font-size:12px;color:#334155;margin:0 0 10px 0;line-height:1.5;">
-        اختر ملف القالب الرسمي (مثل <strong>جديد اكسل.xlsx</strong>) <strong>مرة واحدة فقط</strong>؛ سيُحفظ تلقائياً داخل ذاكرة التطبيق للعمل بدون إنترنت، وفي كل مرة تضغط فيها على <strong>📊 Excel الرسمي</strong> سيتم حقن بيانات الأسابيع والورقة الشهرية داخل نفس هذا القالب بنفس ألوانه وشعاراته ومعادلاته 100%.
+        اختر ملف القالب الرسمي (مثل <strong>template.xlsx</strong>) <strong>مرة واحدة فقط</strong>؛ سيُحفظ تلقائياً داخل ذاكرة التطبيق للعمل بدون إنترنت، وفي كل مرة تصدّر فيها Excel سيتم حقن بيانات الأسابيع والورقة الشهرية داخل نفس هذا القالب بنفس ألوانه وشعاراته ومعادلاته 100%.
       </p>
       <button class="btn-action btn-excel full-btn" onclick="document.getElementById('templateFileInput').click()">📂 اختيار ملف القالب الرسمي (.xlsx)</button>
       <input type="file" id="templateFileInput" class="sr-file-input" onchange="handleTemplateUpload(event)">
     </div>
     <div class="row-gap">
-      <button class="btn-action btn-share flex-1" onclick="exportOfficialExcelFromModal()">📊 تصدير Excel الآن بهذا القالب</button>
-      <button id="btnDeleteTemplate" class="btn-action btn-pdf hidden" onclick="deleteSavedTemplate()">🗑️ حذف القالب المحفوظ</button>
+      <button class="btn-action btn-excel flex-1" onclick="exportOfficialExcelFromModal('save')">📥 حفظ Excel في الجهاز</button>
+      <button class="btn-action btn-share flex-1" onclick="exportOfficialExcelFromModal('share')">📤 إرسال نسخة Excel</button>
+      <button id="btnDeleteTemplate" class="btn-action btn-pdf hidden" onclick="deleteSavedTemplate()">🗑️ حذف القالب</button>
     </div>
   </div>
 </div>
@@ -104,7 +138,7 @@
     <div class="panel-box team-id-box">
       <div class="panel-title">🪪 هوية جهازك في الفريق (تمنع تداخل أو حذف حالات الزملاء عند الدمج):</div>
       <div class="row-gap">
-        <input id="teamMemberNameInput" class="form-input flex-1" placeholder="اكتب اسمك أو دورك (مثال: د. أمير / ممرض الفرز)" onchange="saveTeamMemberName(this.value)">
+        <input id="teamMemberNameInput" class="form-input flex-1" placeholder="اكتب اسمك أو دورك (مثال: Dr. AmirAl_maazi / ممرض الفرز)" onchange="saveTeamMemberName(this.value)">
         <span id="deviceIdBadge" class="device-pill" title="المعرف الفريد لهذا الجهاز">ID: —</span>
       </div>
     </div>
@@ -116,13 +150,14 @@
         <select id="backupExportScope" class="form-input" onchange="updateBackupScopePreview()">
           <option value="day">📅 اليوم المحدد فقط (سريع للإرسال اليومي عبر واتساب)</option>
           <option value="week">📆 الأسبوع التقريري الحالي (W1 - W5)</option>
-          <option value="month">🗓️ الشهر التقريري الحالي (دورة 26 → 25)</option>
+          <option value="month">🗓️ الدورة الشهرية الحالية (حسب الضبط)</option>
           <option value="all" selected>💾 جميع البيانات المحفوظة (نسخة احتياطية كاملة)</option>
         </select>
       </div>
       <div class="row-gap">
-        <button class="btn-action btn-excel flex-1" onclick="exportBackupJSON()">📤 إرسال / حفظ ملف الفريق (.json)</button>
-        <button class="btn-action btn-share flex-1" onclick="copyBackupToClipboard()">📋 نسخ الكود للحافظة</button>
+        <button class="btn-action btn-excel flex-1" onclick="exportBackupJSON('save')">📥 حفظ ملف (.json) بالجهاز</button>
+        <button class="btn-action btn-share flex-1" onclick="exportBackupJSON('share')">📤 إرسال ملف الفريق (.json)</button>
+        <button class="btn-action btn-backup" onclick="copyBackupToClipboard()">📋 نسخ الكود</button>
       </div>
     </div>
 
@@ -147,38 +182,10 @@
     <div id="mergeReportBox" class="panel-box merge-report-box hidden">
       <div class="panel-title" style="color:#0f766e;">📊 تقرير نتيجة الدمج الجماعي:</div>
       <div id="mergeReportContent"></div>
-      <button class="btn-action btn-excel full-btn" style="margin-top:8px;" onclick="closeModal('backupModal'); exportOfficialExcel();">📊 تصدير Excel الرسمي الموحد الآن</button>
-    </div>
-  </div>
-</div>
-
-<!-- استوديو المعاينة وضبط المقاسات قبل التصدير (PDF Print Studio) -->
-<div id="pdfStudioModal" class="studio-backdrop hidden">
-  <div class="studio-header">
-    <strong>📐 استوديو معاينة وضبط مقاسات استمارة ECHO 23028 (PDF)</strong>
-    <div class="row-gap">
-      <button class="btn-action btn-excel" onclick="exportFinalPDF()">💾 حفظ / مشاركة PDF</button>
-      <button class="btn-action btn-share" onclick="triggerSmartPrint()">🖨️ طباعة</button>
-      <button class="btn-action btn-pdf" onclick="closeModal('pdfStudioModal')">✖ إغلاق</button>
-    </div>
-  </div>
-  <div class="studio-controls">
-    <div class="control-item">
-      <label>الاتجاه:</label>
-      <select id="ctrlOrientation" onchange="applyStudioSettings()">
-        <option value="portrait">A4 عمودي</option>
-        <option value="landscape" selected>A4 أفقي (موصى به)</option>
-      </select>
-    </div>
-    <div class="control-item"><label>العرض:</label><input type="range" id="ctrlPaperWidth" min="980" max="1550" step="10" value="1360" oninput="applyStudioSettings()"><span id="lblPaperWidth">1360px</span></div>
-    <div class="control-item"><label>الخط:</label><input type="range" id="ctrlFontSize" min="5.5" max="10" step="0.2" value="7.4" oninput="applyStudioSettings()"><span id="lblFontSize">7.4px</span></div>
-    <div class="control-item"><label>ارتفاع الصف:</label><input type="range" id="ctrlCellPad" min="0.8" max="3.8" step="0.2" value="1.5" oninput="applyStudioSettings()"><span id="lblCellPad">1.5px</span></div>
-    <div class="control-item"><label>التقريب:</label><input type="range" id="ctrlPreviewZoom" min="0.25" max="1.0" step="0.05" value="0.35" oninput="applyStudioZoom()"><span id="lblPreviewZoom">35%</span></div>
-    <button class="btn-action btn-backup" onclick="resetStudioDefaults()">🔄 ضبط قياسي</button>
-  </div>
-  <div class="studio-viewport" id="studioViewport">
-    <div class="studio-paper-scaler" id="studioScaler">
-      <div class="studio-paper" id="studioPaper"></div>
+      <div class="row-gap" style="margin-top:8px;">
+        <button class="btn-action btn-excel flex-1" onclick="closeModal('backupModal'); exportOfficialExcel('save');">📥 حفظ Excel الموحد بالجهاز</button>
+        <button class="btn-action btn-share flex-1" onclick="closeModal('backupModal'); exportOfficialExcel('share');">📤 إرسال نسخة Excel الموحد</button>
+      </div>
     </div>
   </div>
 </div>
@@ -200,12 +207,13 @@
     <label>📅 التاريخ:</label>
     <input type="date" id="workDate" class="date-input" onchange="onDateChange()">
     <span id="dayWeekLabel" class="day-week-label"></span>
+    <button id="btnCyclePill" class="btn-action btn-cycle" onclick="openCycleModal()">🗓️ ضبط الدورة</button>
     <div class="spacer"></div>
     <button class="btn-action btn-facility" onclick="openModal('facilityModal')">⚙️ المرفق</button>
     <button class="btn-action btn-backup" onclick="openModal('guideModal')">📖 الدليل</button>
     <button id="btnTemplateMgr" class="btn-action btn-edit" onclick="openTemplateModal()">📄 القالب</button>
-    <button class="btn-action btn-excel" onclick="exportOfficialExcel()">📊 Excel الرسمي</button>
-    <button class="btn-action btn-pdf" onclick="openPdfStudio()">📐 معاينة و PDF</button>
+    <button class="btn-action btn-excel" onclick="exportOfficialExcel('save')">📥 حفظ Excel بالجهاز</button>
+    <button class="btn-action btn-excel-share" onclick="exportOfficialExcel('share')">📤 إرسال نسخة Excel</button>
     <button class="btn-action btn-share" onclick="openBackupModal()">👥 دمج الفريق / نسخ</button>
   </div>
 </header>
@@ -337,7 +345,7 @@
           <select id="logScopeSelect" onchange="syncLogScope(this.value)" class="mini-select">
             <option value="day">حالات اليوم المحدد</option>
             <option value="week">حالات الأسبوع الحالي</option>
-            <option value="month">حالات الشهر الحالي</option>
+            <option value="month">حالات الدورة الشهرية الحالية</option>
             <option value="all">جميع الحالات المحفوظة</option>
           </select>
           <button class="btn-action btn-pdf" onclick="clearCurrentDayCases()">🗑️ مسح اليوم</button>
@@ -406,7 +414,7 @@
     </div>
   </section>
 
-  <!-- التبويب 3: الاستمارة الرسمية الكاملة (يومي / أسبوعي W1-W5 / شهري / مخصص) -->
+  <!-- التبويب 3: الاستمارة الرسمية الكاملة بنفس شكل القالب الرسمي (يومي / أسبوعي W1-W5 / شهري / مخصص) -->
   <section id="tab-report" class="hidden">
     <div class="card no-print report-toolbar">
       <div class="row-gap">
@@ -422,7 +430,9 @@
           <option value="custom">نطاق تاريخ مخصص</option>
           <option value="all">تراكمي (كل الذاكرة)</option>
         </select>
-        <input type="month" id="reportMonthPicker" class="mini-select" onchange="renderReports()">
+        <input type="month" id="reportMonthPicker" class="mini-select" onchange="onReportMonthChange()">
+        <button class="btn-action btn-cycle" onclick="openCycleModal()">🗓️ ضبط بداية ونهاية الدورة</button>
+        <span id="reportCycleBadge" class="cycle-range-chip"></span>
         <div id="customRangeWrap" class="row-gap hidden">
           <input type="date" id="rangeStart" class="mini-select" onchange="renderReports()">
           <span>إلى</span>
@@ -430,8 +440,8 @@
         </div>
       </div>
       <div class="row-gap">
-        <button class="btn-action btn-excel" onclick="exportOfficialExcel()">📊 تصدير Excel الرسمي</button>
-        <button class="btn-action btn-pdf" onclick="openPdfStudio()">📐 معاينة وضبط PDF</button>
+        <button class="btn-action btn-excel" onclick="exportOfficialExcel('save')">📥 حفظ Excel في الجهاز</button>
+        <button class="btn-action btn-excel-share" onclick="exportOfficialExcel('share')">📤 إرسال نسخة Excel</button>
       </div>
     </div>
 
@@ -443,6 +453,11 @@
     <div id="analyticsContainer"></div>
   </section>
 </main>
+
+<!-- تذييل التطبيق -->
+<footer class="app-footer">
+  <span>تطوير الدكتور أمير المعازي</span>
+</footer>
 
 <!-- ربط وحدات التطبيق ومحرك تصدير قالب ECHO 23028 الرسمي -->
 <script src="data.js"></script>
